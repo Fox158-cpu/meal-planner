@@ -456,7 +456,18 @@ function selectProfile(id) {
     currentMember = 'self';
 
     const saved = loadPlan(id);
-    if (saved) { weekPlan = saved; } else { generateWeekPlan(); }
+    if (saved) {
+        weekPlan = saved;
+        // Completer les anciens plans qui n'ont pas petit_dejeuner/encas
+        const pdj = shuffle(getFilteredRecipes('petit_dejeuner'));
+        const enc = shuffle(getFilteredRecipes('encas'));
+        DAYS.forEach((d,i) => {
+            if (!weekPlan[d]) weekPlan[d] = {};
+            if (!weekPlan[d].petit_dejeuner) weekPlan[d].petit_dejeuner = pdj[i%pdj.length];
+            if (!weekPlan[d].encas) weekPlan[d].encas = enc[i%enc.length];
+        });
+        savePlan(id, weekPlan);
+    } else { generateWeekPlan(); }
 
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
@@ -626,9 +637,11 @@ function getFilteredRecipes(mealType) {
 
 function generateWeekPlan() {
     weekPlan = {};
+    const pdj = shuffle(getFilteredRecipes('petit_dejeuner'));
     const dej = shuffle(getFilteredRecipes('dejeuner'));
+    const enc = shuffle(getFilteredRecipes('encas'));
     const din = shuffle(getFilteredRecipes('diner'));
-    DAYS.forEach((d,i) => { weekPlan[d] = { dejeuner:dej[i%dej.length], diner:din[i%din.length] }; });
+    DAYS.forEach((d,i) => { weekPlan[d] = { petit_dejeuner:pdj[i%pdj.length], dejeuner:dej[i%dej.length], encas:enc[i%enc.length], diner:din[i%din.length] }; });
     if (currentProfile) savePlan(currentProfile.id, weekPlan);
 }
 
