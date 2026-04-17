@@ -1074,7 +1074,7 @@ function showDetail(day, mt) {
             <tr style="border-bottom:1px solid var(--border)"><th></th>${headerCols}</tr>
             ${membersRows}
         </table>
-        ${r.portionScale && r.portionScale !== 1 ? `<div style="background:#e8f4f8;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem;color:#2d6a4f;">&#9878; Portion ajustee x${r.portionScale} pour atteindre ton objectif calorique</div>` : ''}
+        ${r.portionScale && r.portionScale !== 1 ? `<div style="background:var(--success-light);border:1px solid var(--primary);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem;color:var(--primary);">&#9878; Portion ajustee x${r.portionScale} pour atteindre ton objectif calorique</div>` : ''}
         <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${Math.round(totalPortions*10)/10} pers. x${r.portionScale||1})</h4>
         <ul style="padding-left:18px;margin-bottom:14px;">${(r.ingredients||[]).map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*(r.portionScale||1)*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
         <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Preparation</h4>
@@ -1187,7 +1187,7 @@ function renderDrive() {
                 <button class="btn" style="background:#7c3aed;color:#fff;font-weight:700;padding:12px 24px;" onclick="copyForClaude()">&#129302; Copier pour Claude</button>
             </div>
         </div>
-        <div id="claudeCopySuccess" style="display:none;background:#d4edda;border:1px solid #28a745;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;text-align:center;">
+        <div id="claudeCopySuccess" style="display:none;background:var(--success-light);border:1px solid var(--success);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;text-align:center;color:var(--text);">
             <strong>&#10004; Prompt copie !</strong> Colle-le dans une conversation Claude (modele Sonnet) pour remplir ton panier automatiquement.
         </div>
 
@@ -1248,7 +1248,7 @@ function renderDrive() {
                     </div>
                 </div>
 
-                <div style="background:#f0e6ff;border-radius:8px;padding:12px;margin-top:14px;font-size:.8rem;">
+                <div style="background:var(--purple-light);border-radius:8px;padding:12px;margin-top:14px;font-size:.8rem;color:var(--text);">
                     <strong>&#128161; Astuces :</strong><br>
                     &#8226; Si Claude ne trouve pas un article, il essaiera des termes de recherche plus courts automatiquement.<br>
                     &#8226; Tu peux lui parler pendant qu'il travaille pour corriger ou ajuster ("prends la version bio", "saute cet article", etc.).<br>
@@ -1257,7 +1257,7 @@ function renderDrive() {
             </div>
         </div>
 
-        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;">
+        <div style="background:var(--fat-light);border:1px solid var(--accent);border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;color:var(--text);">
             <strong>&#9997; Mode manuel :</strong> Tu peux aussi chercher chaque article un par un en cliquant sur "Chercher" dans la liste ci-dessous.
         </div>
         <div class="drive-items">
