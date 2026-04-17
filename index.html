@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Planner — Team Edition</title>
+    <style>
+        :root {
+            --primary: #2d6a4f; --primary-light: #40916c; --primary-dark: #1b4332;
+            --accent: #d4a373; --bg: #f5f6fa; --card: #ffffff; --text: #2d3436;
+            --text-light: #636e72; --border: #dfe6e9; --danger: #e17055;
+            --success: #00b894; --protein: #6c5ce7; --carbs: #00b894;
+            --fat: #fdcb6e; --cal: #e17055; --shadow: 0 2px 12px rgba(0,0,0,0.07);
+            --radius: 12px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+
+        /* Header */
+        .header { background:linear-gradient(135deg,var(--primary-dark),var(--primary)); color:#fff; padding:18px 28px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; box-shadow:0 4px 20px rgba(0,0,0,0.15); }
+        .header h1 { font-size:1.4rem; }
+        .header-sub { font-size:.8rem; opacity:.85; margin-top:2px; }
+        .header-actions { display:flex; gap:8px; align-items:center; }
+
+        .btn { padding:9px 18px; border:none; border-radius:8px; cursor:pointer; font-size:.85rem; font-weight:600; transition:all .2s; display:inline-flex; align-items:center; gap:5px; }
+        .btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+        .btn-primary { background:var(--accent); color:var(--primary-dark); }
+        .btn-secondary { background:rgba(255,255,255,.2); color:#fff; border:1px solid rgba(255,255,255,.3); }
+        .btn-success { background:var(--success); color:#fff; }
+        .btn-danger { background:var(--danger); color:#fff; }
+        .btn-drive { background:#0066cc; color:#fff; }
+        .btn-sm { padding:5px 10px; font-size:.75rem; border-radius:6px; border:1px solid var(--border); background:#fff; cursor:pointer; transition:all .2s; }
+        .btn-sm:hover { background:#f0f0f0; }
+
+        .container { max-width:1400px; margin:0 auto; padding:20px; }
+
+        /* Tabs */
+        .tabs { display:flex; gap:4px; background:var(--card); border-radius:var(--radius); padding:4px; box-shadow:var(--shadow); margin-bottom:20px; }
+        .tab { flex:1; padding:11px; text-align:center; border:none; background:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:.85rem; color:var(--text-light); transition:all .2s; }
+        .tab.active { background:var(--primary); color:#fff; }
+        .tab:hover:not(.active) { background:#f0f0f0; }
+
+        /* Macro Summary */
+        .macro-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:20px; }
+        .macro-card { background:var(--card); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); text-align:center; }
+        .macro-card .label { font-size:.75rem; color:var(--text-light); text-transform:uppercase; letter-spacing:.5px; }
+        .macro-card .value { font-size:1.6rem; font-weight:700; margin:3px 0; }
+        .macro-card .target { font-size:.75rem; color:var(--text-light); }
+        .macro-card .bar { height:5px; background:#eee; border-radius:3px; margin-top:6px; overflow:hidden; }
+        .macro-card .bar-fill { height:100%; border-radius:3px; transition:width .5s; }
+        .mc-cal .value{color:var(--cal)} .mc-cal .bar-fill{background:var(--cal)}
+        .mc-prot .value{color:var(--protein)} .mc-prot .bar-fill{background:var(--protein)}
+        .mc-carbs .value{color:var(--carbs)} .mc-carbs .bar-fill{background:var(--carbs)}
+        .mc-fat .value{color:var(--fat)} .mc-fat .bar-fill{background:var(--fat)}
+
+        /* Week Grid */
+        .week-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+        .day-card { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; transition:transform .2s; }
+        .day-card:hover { transform:translateY(-2px); }
+        .day-header { background:var(--primary); color:#fff; padding:10px 14px; font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+        .day-macros-mini { font-size:.7rem; opacity:.9; font-weight:400; }
+        .meal-slot { padding:14px; border-bottom:1px solid var(--border); }
+        .meal-slot:last-child { border-bottom:none; }
+        .meal-type { font-size:.7rem; text-transform:uppercase; color:var(--primary-light); font-weight:700; letter-spacing:1px; margin-bottom:6px; }
+        .meal-name { font-size:.95rem; font-weight:600; margin-bottom:5px; cursor:pointer; }
+        .meal-name:hover { color:var(--primary); }
+        .meal-macros { display:flex; gap:10px; font-size:.75rem; color:var(--text-light); flex-wrap:wrap; }
+        .meal-macros span { display:flex; align-items:center; gap:3px; }
+        .dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+        .dot-cal{background:var(--cal)} .dot-prot{background:var(--protein)} .dot-carbs{background:var(--carbs)} .dot-fat{background:var(--fat)}
+        .meal-actions { display:flex; gap:5px; margin-top:8px; }
+
+        /* Shopping */
+        .shopping-category { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:14px; overflow:hidden; }
+        .shopping-category-header { background:var(--primary-light); color:#fff; padding:10px 14px; font-weight:700; font-size:.9rem; display:flex; justify-content:space-between; }
+        .shopping-item { padding:8px 14px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+        .shopping-item:last-child { border-bottom:none; }
+        .shopping-item label { display:flex; align-items:center; gap:8px; cursor:pointer; flex:1; }
+        .shopping-item input[type=checkbox] { width:16px; height:16px; accent-color:var(--primary); }
+        .shopping-item .qty { color:var(--text-light); font-size:.8rem; min-width:80px; text-align:right; }
+        .item-checked { text-decoration:line-through; opacity:.4; }
+
+        /* Drive Section */
+        .drive-banner { border-radius:var(--radius); padding:28px; text-align:center; margin-bottom:20px; color:#fff; }
+        .drive-banner h2 { font-size:1.3rem; margin-bottom:6px; }
+        .drive-banner p { opacity:.9; margin-bottom:16px; }
+        .drive-items { background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; }
+        .drive-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+        .drive-item:last-child { border-bottom:none; }
+
+        /* Profile Setup / Modal */
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.5); z-index:200; justify-content:center; align-items:center; }
+        .modal-overlay.active { display:flex; }
+        .modal { background:var(--card); border-radius:var(--radius); padding:24px; max-width:600px; width:92%; max-height:85vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+        .modal h3 { margin-bottom:14px; }
+
+        .form-group { margin-bottom:14px; }
+        .form-group label { display:block; font-weight:600; margin-bottom:4px; font-size:.85rem; }
+        .form-group input, .form-group select { width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:.9rem; }
+        .form-group input:focus, .form-group select:focus { outline:none; border-color:var(--primary); }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .form-hint { font-size:.75rem; color:var(--text-light); margin-top:2px; }
+
+        .restriction-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+        .restriction-tag { padding:5px 12px; border:1px solid var(--border); border-radius:16px; font-size:.8rem; cursor:pointer; transition:all .2s; user-select:none; }
+        .restriction-tag.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .restriction-tag:hover:not(.active) { border-color:var(--primary-light); }
+
+        /* Profile Pill */
+        .profile-pill { display:flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; background:rgba(255,255,255,.15); font-size:.8rem; cursor:pointer; border:1px solid rgba(255,255,255,.3); transition:all .2s; }
+        .profile-pill:hover { background:rgba(255,255,255,.25); }
+        .profile-pill .avatar { width:24px; height:24px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.7rem; color:var(--primary-dark); }
+
+        /* Household member pills */
+        .member-pills { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+        .member-pill { padding:7px 14px; border:2px solid var(--border); border-radius:20px; background:#fff; cursor:pointer; font-weight:600; font-size:.8rem; transition:all .2s; }
+        .member-pill.active { border-color:var(--primary); background:var(--primary); color:#fff; }
+        .member-pill:hover:not(.active) { border-color:var(--primary-light); }
+        .badge { display:inline-block; background:#fff3cd; color:#856404; font-size:.65rem; padding:1px 6px; border-radius:8px; margin-left:3px; font-weight:600; }
+
+        /* Recipe option */
+        .recipe-option { padding:12px; border:2px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer; transition:all .2s; }
+        .recipe-option:hover { border-color:var(--primary-light); background:#f8fff8; }
+        .recipe-option.selected { border-color:var(--primary); background:#edf7ed; }
+        .recipe-option-name { font-weight:600; margin-bottom:3px; }
+        .recipe-option-macros { font-size:.75rem; color:var(--text-light); }
+
+        .sodium-warning { background:#fff3cd; border-left:4px solid #ffc107; padding:8px 12px; border-radius:0 8px 8px 0; font-size:.8rem; margin:8px 0; }
+
+        /* Welcome Screen */
+        .welcome { max-width:540px; margin:80px auto; text-align:center; padding:20px; }
+        .welcome h2 { font-size:1.8rem; margin-bottom:10px; color:var(--primary-dark); }
+        .welcome p { color:var(--text-light); margin-bottom:24px; }
+        .welcome .btn { font-size:1rem; padding:14px 28px; }
+
+        /* Profile List */
+        .profile-list { display:grid; gap:10px; margin:20px 0; }
+        .profile-card { display:flex; align-items:center; gap:12px; padding:14px; border:2px solid var(--border); border-radius:var(--radius); cursor:pointer; transition:all .2s; background:#fff; }
+        .profile-card:hover { border-color:var(--primary); transform:translateY(-1px); box-shadow:var(--shadow); }
+        .profile-card .avatar-lg { width:40px; height:40px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem; }
+        .profile-card .info { flex:1; text-align:left; }
+        .profile-card .info .name { font-weight:700; }
+        .profile-card .info .details { font-size:.8rem; color:var(--text-light); }
+
+        /* Drive config */
+        .drive-config-card { background:#f8f9fa; border-radius:8px; padding:12px; margin-bottom:12px; }
+        .drive-logo { font-size:1.2rem; font-weight:700; }
+
+        /* Responsive */
+        @media(max-width:768px) {
+            .header { padding:14px; flex-direction:column; gap:10px; }
+            .week-grid { grid-template-columns:1fr; }
+            .macro-summary { grid-template-columns:repeat(2,1fr); }
+            .container { padding:12px; }
+            .form-row { grid-template-columns:1fr; }
+        }
+
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .day-card { animation:fadeIn .3s ease forwards; }
+    </style>
+</head>
+<body>
+
+<!-- Welcome / Profile Selector -->
+<div id="welcomeScreen" style="display:none">
+    <div class="header">
+        <div><h1>&#127869; Meal Planner — Team</h1><div class="header-sub">Planification de repas collaborative</div></div>
+    </div>
+    <div class="welcome">
+        <h2>Bienvenue !</h2>
+        <p>Chaque membre de l'equipe peut creer son propre profil avec ses macros, restrictions alimentaires et son Drive prefere.</p>
+        <div class="profile-list" id="profileList"></div>
+        <button class="btn btn-primary" onclick="openProfileEditor(null)" style="margin-top:10px;">&#10133; Creer mon profil</button>
+    </div>
+</div>
+
+<!-- Main App -->
+<div id="mainApp" style="display:none">
+    <div class="header">
+        <div>
+            <h1>&#127869; Meal Planner — Team</h1>
+            <div class="header-sub" id="headerSub"></div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="regenerateAll()">&#8635; Regenerer</button>
+            <button class="btn btn-secondary" onclick="openProfileEditor(currentProfile.id)">&#9881; Profil</button>
+            <div class="profile-pill" onclick="showWelcome()">
+                <div class="avatar" id="headerAvatar"></div>
+                <span id="headerName"></span> &#9662;
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('plan')">&#128197; Planning</button>
+            <button class="tab" onclick="switchTab('shopping')">&#128722; Courses</button>
+            <button class="tab" onclick="switchTab('drive')">&#128666; Drive</button>
+        </div>
+
+        <div class="member-pills" id="memberPills"></div>
+        <div class="macro-summary" id="macroSummary"></div>
+
+        <div id="planSection"><div class="week-grid" id="weekGrid"></div></div>
+        <div id="shoppingSection" style="display:none"></div>
+        <div id="driveSection" style="display:none"></div>
+    </div>
+</div>
+
+<!-- Profile Editor Modal -->
+<div class="modal-overlay" id="profileModal">
+    <div class="modal">
+        <h3 id="profileModalTitle">&#128100; Creer mon profil</h3>
+        <div class="form-group">
+            <label>Prenom</label>
+            <input type="text" id="pName" placeholder="Ex: Clement">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Calories / jour</label>
+                <input type="number" id="pCal" placeholder="2000">
+            </div>
+            <div class="form-group">
+                <label>Proteines (g)</label>
+                <input type="number" id="pProt" placeholder="142">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Glucides (g)</label>
+                <input type="number" id="pCarbs" placeholder="190">
+            </div>
+            <div class="form-group">
+                <label>Lipides (g)</label>
+                <input type="number" id="pFat" placeholder="75">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Membres du foyer (portions)</label>
+            <div class="form-hint">Combien de personnes mangent avec toi ? Le multiplicateur ajuste les portions.</div>
+            <div id="householdEditor" style="margin-top:8px;"></div>
+            <button class="btn-sm" onclick="addHouseholdMember()" style="margin-top:8px;">&#10133; Ajouter un membre</button>
+        </div>
+
+        <div class="form-group">
+            <label>Restrictions alimentaires</label>
+            <div class="restriction-tags" id="restrictionTags">
+                <span class="restriction-tag" data-r="no-fish" onclick="toggleRestriction(this)">&#128683; Pas de poisson</span>
+                <span class="restriction-tag" data-r="no-pork" onclick="toggleRestriction(this)">&#128683; Pas de porc</span>
+                <span class="restriction-tag" data-r="no-gluten" onclick="toggleRestriction(this)">&#127838; Sans gluten</span>
+                <span class="restriction-tag" data-r="no-lactose" onclick="toggleRestriction(this)">&#129472; Sans lactose</span>
+                <span class="restriction-tag" data-r="low-sodium" onclick="toggleRestriction(this)">&#9888; Sodium reduit</span>
+                <span class="restriction-tag" data-r="vegetarian" onclick="toggleRestriction(this)">&#127807; Vegetarien</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Mon Drive</label>
+            <select id="pDriveType" onchange="updateDriveFields()">
+                <option value="leclerc">E.Leclerc Drive</option>
+                <option value="carrefour">Carrefour Drive</option>
+                <option value="auchan">Auchan Drive</option>
+                <option value="intermarche">Intermarche Drive</option>
+                <option value="coursesu">Courses U</option>
+                <option value="custom">Autre (URL personnalisee)</option>
+            </select>
+        </div>
+        <div class="form-group" id="driveLocationGroup">
+            <label id="driveLocationLabel">Ville ou identifiant magasin</label>
+            <input type="text" id="pDriveLocation" placeholder="Ex: Villenave d'Ornon">
+            <div class="form-hint" id="driveLocationHint">Indique ta ville ou l'identifiant de ton magasin Drive.</div>
+        </div>
+        <div class="form-group" id="driveCustomGroup" style="display:none">
+            <label>URL de recherche (utilise {query} pour le terme)</label>
+            <input type="text" id="pDriveCustomUrl" placeholder="https://mon-drive.fr/recherche?q={query}">
+            <div class="form-hint">Remplace le terme de recherche par {query} dans l'URL.</div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:18px;">
+            <button class="btn btn-success" onclick="saveProfile()">&#10004; Enregistrer</button>
+            <button class="btn btn-sm" style="padding:9px 18px;" onclick="closeModal('profileModal')">Annuler</button>
+            <button class="btn btn-danger btn-sm" id="deleteProfileBtn" style="margin-left:auto; padding:9px 14px; display:none;" onclick="deleteProfile()">&#128465; Supprimer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Swap Modal -->
+<div class="modal-overlay" id="swapModal">
+    <div class="modal">
+        <h3>&#128260; Changer la recette</h3>
+        <div id="swapOptions"></div>
+        <div style="display:flex; gap:10px; margin-top:14px;">
+            <button class="btn btn-primary" onclick="confirmSwap()">Confirmer</button>
+            <button class="btn btn-sm" style="padding:9px 18px;" onclick="closeModal('swapModal')">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detailModal"><div class="modal" id="detailContent"></div></div>
+
+<script>
+// ========== STORAGE ==========
+const STORAGE_KEY = 'mealplanner_team_profiles';
+const PLAN_PREFIX = 'mealplanner_plan_';
+
+function loadProfiles() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
+function saveProfiles(profiles) { localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles)); }
+function loadPlan(profileId) { try { return JSON.parse(localStorage.getItem(PLAN_PREFIX + profileId)); } catch { return null; } }
+function savePlan(profileId, plan) { localStorage.setItem(PLAN_PREFIX + profileId, JSON.stringify(plan)); }
+
+// ========== STATE ==========
+let profiles = loadProfiles();
+let currentProfile = null;
+let currentMember = 'self';
+let currentTab = 'plan';
+let weekPlan = {};
+let swapContext = null;
+let editingProfileId = null;
+let tempHousehold = [];
+
+// ========== CONSTANTS ==========
+const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const MEALS = ['dejeuner','diner'];
+const MEAL_LABELS = { dejeuner:'Dejeuner', diner:'Diner' };
+
+// ========== DRIVE CONFIGS ==========
+const DRIVE_CONFIGS = {
+    leclerc: {
+        name: 'E.Leclerc Drive',
+        color: '#e30613',
+        searchUrl: (loc, q) => `https://www.leclercdrive.fr/magasin-000175-${encodeURIComponent(loc.replace(/ /g,'+'))}/recherche?q=${encodeURIComponent(q)}`,
+        homeUrl: (loc) => `https://www.leclercdrive.fr/magasin-000175-${encodeURIComponent(loc.replace(/ /g,'+'))}/`
+    },
+    carrefour: {
+        name: 'Carrefour Drive',
+        color: '#004e9a',
+        searchUrl: (loc, q) => `https://www.carrefour.fr/s?q=${encodeURIComponent(q)}`,
+        homeUrl: () => 'https://www.carrefour.fr/'
+    },
+    auchan: {
+        name: 'Auchan Drive',
+        color: '#e31837',
+        searchUrl: (loc, q) => `https://www.auchan.fr/recherche?text=${encodeURIComponent(q)}`,
+        homeUrl: () => 'https://www.auchan.fr/'
+    },
+    intermarche: {
+        name: 'Intermarche Drive',
+        color: '#dc2d28',
+        searchUrl: (loc, q) => `https://www.intermarche.com/recherche?q=${encodeURIComponent(q)}`,
+        homeUrl: () => 'https://www.intermarche.com/'
+    },
+    coursesu: {
+        name: 'Courses U',
+        color: '#e2001a',
+        searchUrl: (loc, q) => `https://www.coursesu.com/recherche?q=${encodeURIComponent(q)}`,
+        homeUrl: () => 'https://www.coursesu.com/'
+    },
+    custom: {
+        name: 'Drive personnalise',
+        color: '#555',
+        searchUrl: (loc, q, customUrl) => customUrl ? customUrl.replace('{query}', encodeURIComponent(q)) : '#',
+        homeUrl: (loc, customUrl) => customUrl ? customUrl.replace('{query}', '') : '#'
+    }
+};
+
+// ========== RECIPE DATABASE ==========
+const RECIPES = {
+    dejeuner: [
+        { id:'poulet_riz', name:'Poulet grille, riz basmati & brocolis', basePortion:1, macros:{cal:520,prot:42,carbs:52,fat:14,sodium:320}, ingredients:[{name:'Blanc de poulet',qty:200,unit:'g',cat:'Viandes'},{name:'Riz basmati',qty:100,unit:'g',cat:'Feculents'},{name:'Brocolis',qty:150,unit:'g',cat:'Legumes'},{name:"Huile d'olive",qty:10,unit:'ml',cat:'Epicerie'}], steps:['Cuire le riz 12 min.','Griller le poulet 6 min par face.','Sauter les brocolis.','Servir.'], desc:'Classique equilibre riche en proteines.', tags:['no-fish'] },
+        { id:'steak_patate', name:'Steak hache, puree de patate douce & haricots verts', basePortion:1, macros:{cal:550,prot:38,carbs:48,fat:20,sodium:280}, ingredients:[{name:'Steak hache 5%',qty:150,unit:'g',cat:'Viandes'},{name:'Patate douce',qty:200,unit:'g',cat:'Legumes'},{name:'Haricots verts',qty:150,unit:'g',cat:'Legumes'},{name:'Beurre doux',qty:10,unit:'g',cat:'Produits laitiers'}], steps:['Cuire la patate douce, ecraser en puree.','Cuire le steak.','Sauter les haricots.','Servir.'], desc:'Repas complet et reconfortant.', tags:['no-fish'] },
+        { id:'wrap_dinde', name:'Wraps de dinde, avocat & crudites', basePortion:1, macros:{cal:480,prot:35,carbs:40,fat:18,sodium:350}, ingredients:[{name:'Escalope de dinde',qty:150,unit:'g',cat:'Viandes'},{name:'Tortilla de ble',qty:2,unit:'pcs',cat:'Feculents'},{name:'Avocat',qty:0.5,unit:'pc',cat:'Legumes'},{name:'Tomate',qty:1,unit:'pc',cat:'Legumes'},{name:'Salade verte',qty:50,unit:'g',cat:'Legumes'}], steps:['Griller la dinde emincee.','Couper avocat et tomate.','Garnir les tortillas, rouler.'], desc:'Frais et rapide.', tags:['no-fish'] },
+        { id:'pates_bolo', name:'Pates completes a la bolognaise', basePortion:1, macros:{cal:560,prot:36,carbs:58,fat:16,sodium:340}, ingredients:[{name:'Pates completes',qty:100,unit:'g',cat:'Feculents'},{name:'Viande hachee 5%',qty:130,unit:'g',cat:'Viandes'},{name:'Coulis de tomate',qty:100,unit:'ml',cat:'Epicerie'},{name:'Oignon',qty:1,unit:'pc',cat:'Legumes'},{name:'Carotte',qty:1,unit:'pc',cat:'Legumes'},{name:'Parmesan',qty:15,unit:'g',cat:'Produits laitiers'}], steps:['Revenir oignon et carotte.','Ajouter la viande.','Verser le coulis, mijoter.','Cuire les pates, servir.'], desc:'Classique familial avec pates completes.', tags:['no-fish'] },
+        { id:'buddha_bowl', name:'Buddha bowl : quinoa, poulet, legumes rotis', basePortion:1, macros:{cal:500,prot:38,carbs:50,fat:15,sodium:250}, ingredients:[{name:'Quinoa',qty:80,unit:'g',cat:'Feculents'},{name:'Blanc de poulet',qty:150,unit:'g',cat:'Viandes'},{name:'Courgette',qty:1,unit:'pc',cat:'Legumes'},{name:'Poivron',qty:1,unit:'pc',cat:'Legumes'},{name:'Pois chiches',qty:80,unit:'g',cat:'Feculents'},{name:"Huile d'olive",qty:10,unit:'ml',cat:'Epicerie'}], steps:['Cuire le quinoa.','Rotir les legumes au four.','Griller le poulet.','Assembler le bowl.'], desc:'Bowl colore et equilibre.', tags:['no-fish'] },
+        { id:'tajine', name:'Tajine de poulet aux legumes & semoule', basePortion:1, macros:{cal:530,prot:40,carbs:55,fat:13,sodium:310}, ingredients:[{name:'Cuisses de poulet',qty:180,unit:'g',cat:'Viandes'},{name:'Semoule',qty:80,unit:'g',cat:'Feculents'},{name:'Courgette',qty:1,unit:'pc',cat:'Legumes'},{name:'Carotte',qty:2,unit:'pcs',cat:'Legumes'},{name:'Pois chiches',qty:80,unit:'g',cat:'Feculents'},{name:'Bouillon volaille',qty:200,unit:'ml',cat:'Epicerie'}], steps:['Revenir le poulet puis les legumes.','Ajouter epices et bouillon.','Mijoter 25 min.','Servir avec semoule.'], desc:'Plat parfume et complet.', tags:['no-fish'] },
+        { id:'risotto', name:'Risotto champignons & dinde', basePortion:1, macros:{cal:510,prot:35,carbs:56,fat:14,sodium:290}, ingredients:[{name:'Riz arborio',qty:100,unit:'g',cat:'Feculents'},{name:'Escalope de dinde',qty:130,unit:'g',cat:'Viandes'},{name:'Champignons',qty:200,unit:'g',cat:'Legumes'},{name:'Oignon',qty:1,unit:'pc',cat:'Legumes'},{name:'Bouillon volaille',qty:400,unit:'ml',cat:'Epicerie'},{name:'Parmesan',qty:20,unit:'g',cat:'Produits laitiers'}], steps:['Revenir oignon et champignons.','Nacrer le riz.','Ajouter le bouillon petit a petit.','Servir avec parmesan.'], desc:'Risotto cremeux et proteine.', tags:['no-fish'] },
+        { id:'lentilles_oeuf', name:'Salade tiede de lentilles & oeuf poche', basePortion:1, macros:{cal:460,prot:32,carbs:45,fat:16,sodium:200}, ingredients:[{name:'Lentilles vertes',qty:100,unit:'g',cat:'Feculents'},{name:'Oeufs',qty:2,unit:'pcs',cat:'Produits laitiers'},{name:'Tomate',qty:1,unit:'pc',cat:'Legumes'},{name:'Concombre',qty:0.5,unit:'pc',cat:'Legumes'},{name:"Huile d'olive",qty:15,unit:'ml',cat:'Epicerie'}], steps:['Cuire les lentilles 25 min.','Pocher les oeufs.','Couper les legumes.','Assembler et servir.'], desc:'Vegetarien, riche en fibres.', tags:['no-fish','vegetarian'] },
+        { id:'gratin_poulet', name:'Gratin de legumes au poulet', basePortion:1, macros:{cal:490,prot:38,carbs:35,fat:20,sodium:330}, ingredients:[{name:'Blanc de poulet',qty:160,unit:'g',cat:'Viandes'},{name:'Courgette',qty:1,unit:'pc',cat:'Legumes'},{name:'Aubergine',qty:1,unit:'pc',cat:'Legumes'},{name:'Tomate',qty:2,unit:'pcs',cat:'Legumes'},{name:'Lait demi-ecreme',qty:150,unit:'ml',cat:'Produits laitiers'},{name:'Emmental rape',qty:30,unit:'g',cat:'Produits laitiers'}], steps:['Trancher et griller les legumes.','Cuire le poulet, emincer.','Bechamel legere.','Gratiner 20 min a 200C.'], desc:'Gratin fondant et leger.', tags:['no-fish'] },
+        { id:'wok_boeuf', name:'Wok de boeuf aux legumes & nouilles', basePortion:1, macros:{cal:540,prot:36,carbs:50,fat:18,sodium:380}, ingredients:[{name:'Rumsteck',qty:150,unit:'g',cat:'Viandes'},{name:'Nouilles de riz',qty:80,unit:'g',cat:'Feculents'},{name:'Poivron',qty:1,unit:'pc',cat:'Legumes'},{name:'Carotte',qty:1,unit:'pc',cat:'Legumes'},{name:'Oignon',qty:1,unit:'pc',cat:'Legumes'},{name:'Sauce soja',qty:15,unit:'ml',cat:'Epicerie'}], steps:['Emincer le boeuf.','Couper les legumes.','Saisir au wok.','Ajouter nouilles et sauce.'], desc:'Plat asiatique rapide.', tags:['no-fish'] }
+    ],
+    diner: [
+        { id:'omelette', name:'Omelette aux legumes & salade', basePortion:1, macros:{cal:380,prot:28,carbs:12,fat:24,sodium:250}, ingredients:[{name:'Oeufs',qty:3,unit:'pcs',cat:'Produits laitiers'},{name:'Champignons',qty:100,unit:'g',cat:'Legumes'},{name:'Poivron',qty:0.5,unit:'pc',cat:'Legumes'},{name:'Salade verte',qty:80,unit:'g',cat:'Legumes'},{name:"Huile d'olive",qty:10,unit:'ml',cat:'Epicerie'}], steps:['Revenir les legumes.','Battre les oeufs, verser.','Cuire 5 min, plier.','Servir avec salade.'], desc:'Diner leger et rapide.', tags:['no-fish','vegetarian'] },
+        { id:'soupe_poulet', name:'Soupe de legumes & poulet effiloche', basePortion:1, macros:{cal:340,prot:30,carbs:28,fat:10,sodium:220}, ingredients:[{name:'Blanc de poulet',qty:130,unit:'g',cat:'Viandes'},{name:'Poireaux',qty:1,unit:'pc',cat:'Legumes'},{name:'Carotte',qty:2,unit:'pcs',cat:'Legumes'},{name:'Pomme de terre',qty:1,unit:'pc',cat:'Legumes'},{name:'Courgette',qty:1,unit:'pc',cat:'Legumes'},{name:'Bouillon volaille',qty:500,unit:'ml',cat:'Epicerie'}], steps:['Cuire le poulet dans le bouillon.','Ajouter les legumes.','Mixer grossierement.','Servir avec poulet effiloche.'], desc:'Soupe reconfortante, faible en sodium.', tags:['no-fish'] },
+        { id:'cesar', name:'Salade Cesar revisitee (sauce allegee)', basePortion:1, macros:{cal:400,prot:35,carbs:20,fat:20,sodium:300}, ingredients:[{name:'Blanc de poulet',qty:150,unit:'g',cat:'Viandes'},{name:'Salade verte',qty:150,unit:'g',cat:'Legumes'},{name:'Pain complet',qty:1,unit:'tranche',cat:'Feculents'},{name:'Parmesan',qty:15,unit:'g',cat:'Produits laitiers'},{name:'Yaourt nature',qty:50,unit:'g',cat:'Produits laitiers'}], steps:['Griller le poulet.','Faire des croutons.','Melanger yaourt et parmesan pour la sauce.','Assembler.'], desc:'Cesar allegee, sauce au yaourt.', tags:['no-fish'] },
+        { id:'quiche', name:'Quiche sans pate, epinards & dinde', basePortion:1, macros:{cal:350,prot:28,carbs:18,fat:18,sodium:350}, ingredients:[{name:'Oeufs',qty:3,unit:'pcs',cat:'Produits laitiers'},{name:'Jambon de dinde',qty:80,unit:'g',cat:'Viandes'},{name:'Epinards',qty:150,unit:'g',cat:'Legumes'},{name:'Lait demi-ecreme',qty:100,unit:'ml',cat:'Produits laitiers'},{name:'Emmental rape',qty:30,unit:'g',cat:'Produits laitiers'}], steps:['Faire tomber les epinards.','Battre oeufs + lait + fromage.','Disposer dans un moule.','Cuire 30 min a 180C.'], desc:'Quiche legere sans pate.', tags:['no-fish'] },
+        { id:'ratatouille', name:'Poulet roti & ratatouille maison', basePortion:1, macros:{cal:420,prot:38,carbs:22,fat:18,sodium:260}, ingredients:[{name:'Cuisses de poulet',qty:160,unit:'g',cat:'Viandes'},{name:'Courgette',qty:1,unit:'pc',cat:'Legumes'},{name:'Aubergine',qty:0.5,unit:'pc',cat:'Legumes'},{name:'Poivron',qty:1,unit:'pc',cat:'Legumes'},{name:'Tomate',qty:2,unit:'pcs',cat:'Legumes'},{name:'Oignon',qty:1,unit:'pc',cat:'Legumes'},{name:"Huile d'olive",qty:15,unit:'ml',cat:'Epicerie'}], steps:['Couper les legumes.','Revenir un par un.','Mijoter 25 min.','Rotir le poulet au four.'], desc:'Repas provencal leger.', tags:['no-fish'] },
+        { id:'poke_dinde', name:'Poke bowl dinde, riz & edamame', basePortion:1, macros:{cal:440,prot:34,carbs:44,fat:14,sodium:270}, ingredients:[{name:'Escalope de dinde',qty:140,unit:'g',cat:'Viandes'},{name:'Riz basmati',qty:70,unit:'g',cat:'Feculents'},{name:'Edamame',qty:60,unit:'g',cat:'Surgeles'},{name:'Concombre',qty:0.5,unit:'pc',cat:'Legumes'},{name:'Carotte',qty:1,unit:'pc',cat:'Legumes'},{name:'Avocat',qty:0.5,unit:'pc',cat:'Legumes'},{name:'Sauce soja',qty:10,unit:'ml',cat:'Epicerie'}], steps:['Cuire le riz.','Griller la dinde.','Cuire les edamame.','Assembler le bowl.'], desc:'Bowl frais et colore.', tags:['no-fish'] },
+        { id:'crepes', name:'Crepes sarrasin, jambon & fromage', basePortion:1, macros:{cal:410,prot:30,carbs:38,fat:16,sodium:380}, ingredients:[{name:'Farine de sarrasin',qty:60,unit:'g',cat:'Feculents'},{name:'Oeufs',qty:1,unit:'pc',cat:'Produits laitiers'},{name:'Lait demi-ecreme',qty:100,unit:'ml',cat:'Produits laitiers'},{name:'Jambon de dinde',qty:80,unit:'g',cat:'Viandes'},{name:'Emmental rape',qty:30,unit:'g',cat:'Produits laitiers'},{name:'Salade verte',qty:60,unit:'g',cat:'Legumes'}], steps:['Preparer la pate.','Cuire les crepes.','Garnir et plier.','Servir avec salade.'], desc:'Galettes completes et gourmandes.', tags:['no-fish'] },
+        { id:'curry_dinde', name:'Curry leger de dinde & epinards', basePortion:1, macros:{cal:450,prot:36,carbs:48,fat:12,sodium:280}, ingredients:[{name:'Escalope de dinde',qty:160,unit:'g',cat:'Viandes'},{name:'Riz basmati',qty:80,unit:'g',cat:'Feculents'},{name:'Epinards',qty:150,unit:'g',cat:'Legumes'},{name:'Lait de coco',qty:100,unit:'ml',cat:'Epicerie'},{name:'Oignon',qty:1,unit:'pc',cat:'Legumes'}], steps:['Revenir oignon et dinde.','Ajouter curry et lait de coco.','Ajouter les epinards.','Servir avec riz.'], desc:'Curry doux au lait de coco.', tags:['no-fish'] },
+        { id:'tartine_chevre', name:'Tartines chevre frais & salade composee', basePortion:1, macros:{cal:390,prot:22,carbs:36,fat:18,sodium:310}, ingredients:[{name:'Pain complet',qty:2,unit:'tranches',cat:'Feculents'},{name:'Chevre frais',qty:60,unit:'g',cat:'Produits laitiers'},{name:'Miel',qty:10,unit:'g',cat:'Epicerie'},{name:'Salade verte',qty:100,unit:'g',cat:'Legumes'},{name:'Tomate',qty:1,unit:'pc',cat:'Legumes'}], steps:['Toaster le pain.','Tartiner le chevre, ajouter miel.','Preparer la salade.','Servir.'], desc:'Diner simple sucre-sale.', tags:['no-fish','vegetarian'] },
+        { id:'gratin_courgettes', name:'Gratin courgettes au boeuf & tomate', basePortion:1, macros:{cal:430,prot:34,carbs:20,fat:22,sodium:300}, ingredients:[{name:'Viande hachee 5%',qty:130,unit:'g',cat:'Viandes'},{name:'Courgette',qty:2,unit:'pcs',cat:'Legumes'},{name:'Coulis de tomate',qty:100,unit:'ml',cat:'Epicerie'},{name:'Emmental rape',qty:30,unit:'g',cat:'Produits laitiers'},{name:'Oignon',qty:1,unit:'pc',cat:'Legumes'}], steps:['Trancher les courgettes.','Revenir le boeuf.','Ajouter le coulis.','Gratiner 25 min a 190C.'], desc:'Gratin savoureux, pauvre en glucides.', tags:['no-fish'] }
+    ]
+};
+
+// ========== PROFILE MANAGEMENT ==========
+
+function showWelcome() {
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('welcomeScreen').style.display = 'block';
+    renderProfileList();
+}
+
+function renderProfileList() {
+    const list = document.getElementById('profileList');
+    if (profiles.length === 0) {
+        list.innerHTML = '<p style="color:var(--text-light); font-size:.9rem;">Aucun profil. Cree le tien !</p>';
+        return;
+    }
+    list.innerHTML = profiles.map(p => `
+        <div class="profile-card" onclick="selectProfile('${p.id}')">
+            <div class="avatar-lg" style="background:${p.color || 'var(--primary)'}">${p.name.charAt(0).toUpperCase()}</div>
+            <div class="info">
+                <div class="name">${p.name}</div>
+                <div class="details">${p.targets.cal} kcal | ${p.targets.prot}g P | ${p.driveType ? DRIVE_CONFIGS[p.driveType]?.name : 'Pas de Drive'}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function selectProfile(id) {
+    currentProfile = profiles.find(p => p.id === id);
+    if (!currentProfile) return;
+    currentMember = 'self';
+
+    const saved = loadPlan(id);
+    if (saved) { weekPlan = saved; } else { generateWeekPlan(); }
+
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+
+    document.getElementById('headerSub').textContent = `${currentProfile.name} — ${currentProfile.targets.cal} kcal/j`;
+    document.getElementById('headerAvatar').textContent = currentProfile.name.charAt(0).toUpperCase();
+    document.getElementById('headerName').textContent = currentProfile.name;
+
+    render();
+}
+
+function openProfileEditor(id) {
+    editingProfileId = id;
+    const p = id ? profiles.find(pr => pr.id === id) : null;
+
+    document.getElementById('profileModalTitle').textContent = p ? '&#9881; Modifier mon profil' : '&#128100; Creer mon profil';
+    document.getElementById('pName').value = p?.name || '';
+    document.getElementById('pCal').value = p?.targets?.cal || '';
+    document.getElementById('pProt').value = p?.targets?.prot || '';
+    document.getElementById('pCarbs').value = p?.targets?.carbs || '';
+    document.getElementById('pFat').value = p?.targets?.fat || '';
+    document.getElementById('pDriveType').value = p?.driveType || 'leclerc';
+    document.getElementById('pDriveLocation').value = p?.driveLocation || '';
+    document.getElementById('pDriveCustomUrl').value = p?.driveCustomUrl || '';
+    document.getElementById('deleteProfileBtn').style.display = p ? 'block' : 'none';
+
+    tempHousehold = p?.household ? [...p.household] : [];
+    renderHouseholdEditor();
+
+    // Restrictions
+    document.querySelectorAll('#restrictionTags .restriction-tag').forEach(t => {
+        t.classList.toggle('active', (p?.restrictions || []).includes(t.dataset.r));
+    });
+
+    updateDriveFields();
+    document.getElementById('profileModal').classList.add('active');
+}
+
+function renderHouseholdEditor() {
+    const el = document.getElementById('householdEditor');
+    el.innerHTML = tempHousehold.map((m, i) => `
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+            <input type="text" value="${m.name}" placeholder="Nom" style="flex:1; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;" onchange="tempHousehold[${i}].name=this.value">
+            <input type="number" value="${m.portion}" step="0.05" min="0.1" max="3" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;" onchange="tempHousehold[${i}].portion=parseFloat(this.value)" title="Multiplicateur portion">
+            <span style="font-size:.7rem; color:var(--text-light);">x</span>
+            <button class="btn-sm" onclick="tempHousehold.splice(${i},1); renderHouseholdEditor();">&#10005;</button>
+        </div>
+    `).join('') || '<p style="font-size:.8rem; color:var(--text-light);">Juste toi pour le moment.</p>';
+}
+
+function addHouseholdMember() {
+    tempHousehold.push({ name: '', portion: 0.85 });
+    renderHouseholdEditor();
+}
+
+function toggleRestriction(el) { el.classList.toggle('active'); }
+
+function updateDriveFields() {
+    const type = document.getElementById('pDriveType').value;
+    document.getElementById('driveCustomGroup').style.display = type === 'custom' ? 'block' : 'none';
+    document.getElementById('driveLocationGroup').style.display = type !== 'custom' ? 'block' : 'none';
+    const hints = {
+        leclerc: 'Ville du magasin (ex: Villenave d\'Ornon)',
+        carrefour: 'Optionnel — la recherche Carrefour est nationale',
+        auchan: 'Optionnel — la recherche Auchan est nationale',
+        intermarche: 'Optionnel',
+        coursesu: 'Optionnel'
+    };
+    document.getElementById('driveLocationHint').textContent = hints[type] || '';
+}
+
+function saveProfile() {
+    const name = document.getElementById('pName').value.trim();
+    if (!name) { alert('Indique ton prenom.'); return; }
+
+    const restrictions = [];
+    document.querySelectorAll('#restrictionTags .restriction-tag.active').forEach(t => restrictions.push(t.dataset.r));
+
+    const colors = ['#2d6a4f','#6c5ce7','#e17055','#00b894','#fdcb6e','#0984e3','#d63031','#6ab04c'];
+    const profile = {
+        id: editingProfileId || 'p_' + Date.now(),
+        name,
+        color: colors[profiles.length % colors.length],
+        targets: {
+            cal: parseInt(document.getElementById('pCal').value) || 2000,
+            prot: parseInt(document.getElementById('pProt').value) || 120,
+            carbs: parseInt(document.getElementById('pCarbs').value) || 180,
+            fat: parseInt(document.getElementById('pFat').value) || 70
+        },
+        household: tempHousehold.filter(m => m.name.trim()),
+        restrictions,
+        driveType: document.getElementById('pDriveType').value,
+        driveLocation: document.getElementById('pDriveLocation').value.trim(),
+        driveCustomUrl: document.getElementById('pDriveCustomUrl').value.trim()
+    };
+
+    if (editingProfileId) {
+        const idx = profiles.findIndex(p => p.id === editingProfileId);
+        if (idx >= 0) { profile.color = profiles[idx].color; profiles[idx] = profile; }
+    } else {
+        profiles.push(profile);
+    }
+
+    saveProfiles(profiles);
+    closeModal('profileModal');
+    selectProfile(profile.id);
+}
+
+function deleteProfile() {
+    if (!editingProfileId || !confirm('Supprimer ce profil ?')) return;
+    profiles = profiles.filter(p => p.id !== editingProfileId);
+    saveProfiles(profiles);
+    localStorage.removeItem(PLAN_PREFIX + editingProfileId);
+    closeModal('profileModal');
+    showWelcome();
+}
+
+// ========== MEAL PLANNING ==========
+
+function getPortionMultiplier(member) {
+    if (member === 'self') return 1;
+    const m = currentProfile.household.find(h => h.name === member);
+    return m ? m.portion : 1;
+}
+
+function getMacros(recipe, member) {
+    const mult = getPortionMultiplier(member);
+    return { cal:Math.round(recipe.macros.cal*mult), prot:Math.round(recipe.macros.prot*mult), carbs:Math.round(recipe.macros.carbs*mult), fat:Math.round(recipe.macros.fat*mult), sodium:Math.round(recipe.macros.sodium*mult) };
+}
+
+function getDayMacros(day, member) {
+    let t = {cal:0,prot:0,carbs:0,fat:0,sodium:0};
+    MEALS.forEach(mt => {
+        if (weekPlan[day]?.[mt]) {
+            const m = getMacros(weekPlan[day][mt], member);
+            t.cal+=m.cal; t.prot+=m.prot; t.carbs+=m.carbs; t.fat+=m.fat; t.sodium+=m.sodium;
+        }
+    });
+    return t;
+}
+
+function getWeekAvg(member) {
+    let t={cal:0,prot:0,carbs:0,fat:0,sodium:0}, n=0;
+    DAYS.forEach(d => { const m=getDayMacros(d,member); if(m.cal>0){t.cal+=m.cal;t.prot+=m.prot;t.carbs+=m.carbs;t.fat+=m.fat;t.sodium+=m.sodium;n++;}});
+    if(!n) return t;
+    return {cal:Math.round(t.cal/n),prot:Math.round(t.prot/n),carbs:Math.round(t.carbs/n),fat:Math.round(t.fat/n),sodium:Math.round(t.sodium/n)};
+}
+
+function shuffle(a) { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
+
+function getFilteredRecipes(mealType) {
+    const restr = currentProfile?.restrictions || [];
+    return RECIPES[mealType].filter(r => {
+        if (restr.includes('vegetarian') && !r.tags?.includes('vegetarian')) return false;
+        return true;
+    });
+}
+
+function generateWeekPlan() {
+    weekPlan = {};
+    const dej = shuffle(getFilteredRecipes('dejeuner'));
+    const din = shuffle(getFilteredRecipes('diner'));
+    DAYS.forEach((d,i) => { weekPlan[d] = { dejeuner:dej[i%dej.length], diner:din[i%din.length] }; });
+    if (currentProfile) savePlan(currentProfile.id, weekPlan);
+}
+
+function regenerateAll() { generateWeekPlan(); render(); }
+
+// ========== RENDERING ==========
+
+function render() { renderMemberPills(); renderMacros(); renderWeek(); renderShopping(); renderDrive(); }
+
+function renderMemberPills() {
+    const el = document.getElementById('memberPills');
+    let html = `<span style="font-weight:600; margin-right:6px; font-size:.85rem;">Macros :</span>`;
+    html += `<button class="member-pill ${currentMember==='self'?'active':''}" onclick="switchMember('self')">${currentProfile.name}</button>`;
+    (currentProfile.household||[]).forEach(m => {
+        const lowSodium = currentProfile.restrictions?.includes('low-sodium');
+        html += `<button class="member-pill ${currentMember===m.name?'active':''}" onclick="switchMember('${m.name}')">${m.name} ${lowSodium?'<span class=badge>Na</span>':''}</button>`;
+    });
+    el.innerHTML = html;
+}
+
+function switchMember(m) { currentMember=m; render(); }
+
+function renderMacros() {
+    const el = document.getElementById('macroSummary');
+    const avg = getWeekAvg(currentMember);
+    const targets = currentMember === 'self' ? currentProfile.targets : currentProfile.targets; // same targets for now
+    const pct = k => Math.min(100, Math.round((avg[k]/targets[k])*100));
+
+    let html = `
+        <div class="macro-card mc-cal"><div class="label">Calories/j</div><div class="value">${avg.cal}</div><div class="target">Obj: ${targets.cal}</div><div class="bar"><div class="bar-fill" style="width:${pct('cal')}%"></div></div></div>
+        <div class="macro-card mc-prot"><div class="label">Proteines/j</div><div class="value">${avg.prot}g</div><div class="target">Obj: ${targets.prot}g</div><div class="bar"><div class="bar-fill" style="width:${pct('prot')}%"></div></div></div>
+        <div class="macro-card mc-carbs"><div class="label">Glucides/j</div><div class="value">${avg.carbs}g</div><div class="target">Obj: ${targets.carbs}g</div><div class="bar"><div class="bar-fill" style="width:${pct('carbs')}%"></div></div></div>
+        <div class="macro-card mc-fat"><div class="label">Lipides/j</div><div class="value">${avg.fat}g</div><div class="target">Obj: ${targets.fat}g</div><div class="bar"><div class="bar-fill" style="width:${pct('fat')}%"></div></div></div>
+    `;
+
+    if (currentProfile.restrictions?.includes('low-sodium')) {
+        const pctNa = Math.min(100, Math.round((avg.sodium/1500)*100));
+        const naColor = avg.sodium > 1500 ? 'var(--danger)' : 'var(--success)';
+        html += `<div class="macro-card" style="border-left:4px solid ${naColor}"><div class="label">Sodium/j</div><div class="value" style="color:${naColor}">${avg.sodium}mg</div><div class="target">Max: 1500mg</div><div class="bar"><div class="bar-fill" style="width:${pctNa}%;background:${naColor}"></div></div></div>`;
+    }
+    el.innerHTML = html;
+}
+
+function renderWeek() {
+    const grid = document.getElementById('weekGrid');
+    grid.innerHTML = '';
+    DAYS.forEach(day => {
+        const dm = getDayMacros(day, currentMember);
+        let mealsHtml = '';
+        MEALS.forEach(mt => {
+            const r = weekPlan[day]?.[mt];
+            if (!r) return;
+            const m = getMacros(r, currentMember);
+            mealsHtml += `
+                <div class="meal-slot">
+                    <div class="meal-type">${MEAL_LABELS[mt]}</div>
+                    <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}</div>
+                    <div class="meal-macros">
+                        <span><span class="dot dot-cal"></span>${m.cal} kcal</span>
+                        <span><span class="dot dot-prot"></span>${m.prot}g P</span>
+                        <span><span class="dot dot-carbs"></span>${m.carbs}g G</span>
+                        <span><span class="dot dot-fat"></span>${m.fat}g L</span>
+                    </div>
+                    <div class="meal-actions">
+                        <button class="btn-sm" onclick="openSwap('${day}','${mt}')">&#128260; Changer</button>
+                        <button class="btn-sm" onclick="showDetail('${day}','${mt}')">&#128196; Details</button>
+                    </div>
+                </div>`;
+        });
+        const card = document.createElement('div');
+        card.className = 'day-card';
+        card.innerHTML = `<div class="day-header"><span>${day}</span><span class="day-macros-mini">${dm.cal} kcal</span></div>${mealsHtml}`;
+        grid.appendChild(card);
+    });
+}
+
+// ========== DETAIL ==========
+
+function showDetail(day, mt) {
+    const r = weekPlan[day][mt];
+    const ms = getMacros(r, 'self');
+    const totalPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion, 0);
+
+    let membersRows = `<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-weight:600">Calories</td><td style="text-align:center">${ms.cal}</td>`;
+    (currentProfile.household||[]).forEach(m => { const mx=getMacros(r,m.name); membersRows+=`<td style="text-align:center">${mx.cal}</td>`; });
+    membersRows += '</tr>';
+    ['prot','carbs','fat','sodium'].forEach(k => {
+        const labels = {prot:'Proteines',carbs:'Glucides',fat:'Lipides',sodium:'Sodium'};
+        const unit = k==='sodium'?'mg':'g';
+        membersRows += `<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-weight:600">${labels[k]}</td><td style="text-align:center">${ms[k]}${unit}</td>`;
+        (currentProfile.household||[]).forEach(m => { const mx=getMacros(r,m.name); membersRows+=`<td style="text-align:center">${mx[k]}${unit}</td>`; });
+        membersRows += '</tr>';
+    });
+
+    let headerCols = `<th style="padding:4px 8px">${currentProfile.name}</th>`;
+    (currentProfile.household||[]).forEach(m => { headerCols+=`<th style="padding:4px 8px">${m.name}</th>`; });
+
+    document.getElementById('detailContent').innerHTML = `
+        <h3>${r.name}</h3>
+        <p style="color:var(--text-light);margin-bottom:14px;font-size:.9rem;">${r.desc}</p>
+        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Macros par personne</h4>
+        <table style="width:100%;font-size:.85rem;border-collapse:collapse;margin-bottom:14px;">
+            <tr style="border-bottom:1px solid var(--border)"><th></th>${headerCols}</tr>
+            ${membersRows}
+        </table>
+        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${Math.round(totalPortions*10)/10} portions)</h4>
+        <ul style="padding-left:18px;margin-bottom:14px;">${r.ingredients.map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
+        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Preparation</h4>
+        <ol style="padding-left:18px;">${r.steps.map(s=>`<li style="margin-bottom:4px;font-size:.85rem;">${s}</li>`).join('')}</ol>
+        <div style="text-align:right;margin-top:14px;"><button class="btn btn-primary" onclick="closeModal('detailModal')">Fermer</button></div>
+    `;
+    document.getElementById('detailModal').classList.add('active');
+}
+
+// ========== SWAP ==========
+
+function openSwap(day, mt) {
+    swapContext = {day, mt};
+    const current = weekPlan[day][mt];
+    const alts = shuffle(getFilteredRecipes(mt).filter(r=>r.id!==current.id)).slice(0,4);
+    document.getElementById('swapOptions').innerHTML = alts.map(r => `
+        <div class="recipe-option" onclick="selectSwap('${r.id}',this)" data-id="${r.id}">
+            <div class="recipe-option-name">${r.name}</div>
+            <div class="recipe-option-macros">${r.macros.cal} kcal | ${r.macros.prot}g P | ${r.macros.carbs}g G | ${r.macros.fat}g L</div>
+        </div>
+    `).join('');
+    document.getElementById('swapModal').classList.add('active');
+}
+
+function selectSwap(id, el) {
+    document.querySelectorAll('#swapOptions .recipe-option').forEach(e=>e.classList.remove('selected'));
+    el.classList.add('selected');
+    swapContext.selectedId = id;
+}
+
+function confirmSwap() {
+    if (!swapContext?.selectedId) return;
+    const r = RECIPES[swapContext.mt].find(r=>r.id===swapContext.selectedId);
+    if (r) { weekPlan[swapContext.day][swapContext.mt]=r; savePlan(currentProfile.id, weekPlan); render(); }
+    closeModal('swapModal');
+}
+
+// ========== TABS ==========
+
+function switchTab(tab) {
+    currentTab=tab;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+    ['plan','shopping','drive'].forEach(s => document.getElementById(s+'Section').style.display = s===tab?'block':'none');
+    if (tab==='shopping') renderShopping();
+    if (tab==='drive') renderDrive();
+}
+
+// ========== SHOPPING ==========
+
+function buildShoppingList() {
+    const items = {};
+    const totalPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion,0);
+    DAYS.forEach(d => MEALS.forEach(mt => {
+        const r = weekPlan[d]?.[mt]; if(!r) return;
+        r.ingredients.forEach(i => {
+            const k=i.name; const q=i.qty*totalPortions;
+            if(!items[k]) items[k]={name:i.name,qty:0,unit:i.unit,cat:i.cat};
+            items[k].qty+=q;
+        });
+    }));
+    Object.values(items).forEach(i=>i.qty=Math.round(i.qty*10)/10);
+    const grouped={};
+    Object.values(items).forEach(i=>{if(!grouped[i.cat])grouped[i.cat]=[];grouped[i.cat].push(i);});
+    return grouped;
+}
+
+function renderShopping() {
+    const el = document.getElementById('shoppingSection');
+    const grouped = buildShoppingList();
+    const icons = {'Viandes':'&#129385;','Legumes':'&#129382;','Feculents':'&#127838;','Produits laitiers':'&#129472;','Epicerie':'&#127858;','Surgeles':'&#10052;'};
+    let total=0; Object.values(grouped).forEach(a=>total+=a.length);
+
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h2 style="font-size:1.2rem;">Liste de courses — ${total} articles</h2>
+        <button class="btn btn-drive" onclick="switchTab('drive')">&#128666; Commander sur ${DRIVE_CONFIGS[currentProfile.driveType]?.name || 'Drive'}</button>
+    </div>`;
+
+    Object.entries(grouped).sort().forEach(([cat, items]) => {
+        html += `<div class="shopping-category"><div class="shopping-category-header"><span>${icons[cat]||'&#128230;'} ${cat}</span><span>${items.length}</span></div>
+        ${items.sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<div class="shopping-item"><label><input type="checkbox" onchange="this.parentElement.parentElement.classList.toggle('item-checked')"><span>${i.name}</span></label><span class="qty">${i.qty} ${i.unit}</span></div>`).join('')}</div>`;
+    });
+    el.innerHTML = html;
+}
+
+// ========== DRIVE ==========
+
+function renderDrive() {
+    const el = document.getElementById('driveSection');
+    const cfg = DRIVE_CONFIGS[currentProfile.driveType] || DRIVE_CONFIGS.leclerc;
+    const grouped = buildShoppingList();
+    const allItems = [];
+    Object.entries(grouped).forEach(([cat,items])=>items.forEach(i=>allItems.push(i)));
+
+    el.innerHTML = `
+        <div class="drive-banner" style="background:linear-gradient(135deg,${cfg.color},${cfg.color}dd)">
+            <h2>&#128666; ${cfg.name}${currentProfile.driveLocation ? ' — '+currentProfile.driveLocation : ''}</h2>
+            <p>Ouvre ton Drive et recherche chaque article</p>
+            <button class="btn" style="background:#fff;color:${cfg.color};font-weight:700;padding:12px 24px;" onclick="openDriveHome()">&#127757; Ouvrir ${cfg.name}</button>
+        </div>
+        <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;">
+            <strong>Astuce :</strong> Clique sur "Chercher" a cote de chaque article pour l'ouvrir directement dans ton Drive. Coche au fur et a mesure.
+        </div>
+        <div class="drive-items">
+            <h3 style="margin-bottom:14px;">&#128203; ${allItems.length} articles a ajouter</h3>
+            ${allItems.sort((a,b)=>a.cat.localeCompare(b.cat)||a.name.localeCompare(b.name)).map((item,i)=>`
+                <div class="drive-item">
+                    <div style="display:flex;align-items:center;gap:8px;flex:1;">
+                        <input type="checkbox" style="width:16px;height:16px;accent-color:${cfg.color};" onchange="this.parentElement.parentElement.style.opacity=this.checked?'.3':'1'">
+                        <div>
+                            <div style="font-weight:600;">${item.name}</div>
+                            <div style="font-size:.75rem;color:var(--text-light);">${item.qty} ${item.unit} — ${item.cat}</div>
+                        </div>
+                    </div>
+                    <button class="btn-sm" onclick="searchDrive('${item.name.replace(/'/g,"\\'")}')">&#128269; Chercher</button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function openDriveHome() {
+    const cfg = DRIVE_CONFIGS[currentProfile.driveType];
+    if (!cfg) return;
+    window.open(cfg.homeUrl(currentProfile.driveLocation, currentProfile.driveCustomUrl), '_blank');
+}
+
+function searchDrive(term) {
+    const cfg = DRIVE_CONFIGS[currentProfile.driveType];
+    if (!cfg) return;
+    window.open(cfg.searchUrl(currentProfile.driveLocation, term, currentProfile.driveCustomUrl), '_blank');
+}
+
+// ========== MODALS ==========
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.addEventListener('click', e => { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('active'); });
+
+// ========== INIT ==========
+if (profiles.length === 0) {
+    showWelcome();
+} else {
+    // Auto-select last used profile
+    selectProfile(profiles[0].id);
+}
+</script>
+</body>
+</html>
