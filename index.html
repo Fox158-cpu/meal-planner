@@ -1005,8 +1005,75 @@ function renderDrive() {
         <div id="claudeCopySuccess" style="display:none;background:#d4edda;border:1px solid #28a745;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;text-align:center;">
             <strong>&#10004; Prompt copie !</strong> Colle-le dans une conversation Claude (modele Sonnet) pour remplir ton panier automatiquement.
         </div>
+
+        <!-- Tutoriel -->
+        <div id="tutoSection" style="background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;">
+            <div onclick="toggleTuto()" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;user-select:none;background:linear-gradient(135deg,#7c3aed,#9f67ff);color:#fff;border-radius:var(--radius);">
+                <span style="font-weight:700;font-size:.95rem;">&#127891; Comment remplir mon panier avec Claude ?</span>
+                <span id="tutoArrow" style="font-size:1.1rem;transition:transform .2s;">&#9660;</span>
+            </div>
+            <div id="tutoBody" style="display:none;padding:18px;">
+                <p style="font-size:.85rem;color:var(--text-light);margin-bottom:14px;">Claude peut remplir automatiquement ton panier Drive en quelques minutes. Voici comment faire :</p>
+
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+                    <div style="min-width:32px;height:32px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;">1</div>
+                    <div>
+                        <div style="font-weight:700;font-size:.9rem;margin-bottom:2px;">Copie le prompt</div>
+                        <p style="font-size:.82rem;color:var(--text-light);">Clique sur le bouton violet <strong>"&#129302; Copier pour Claude"</strong> ci-dessus. Cela copie dans ton presse-papier un message optimise contenant toute ta liste de courses.</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+                    <div style="min-width:32px;height:32px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;">2</div>
+                    <div>
+                        <div style="font-weight:700;font-size:.9rem;margin-bottom:2px;">Ouvre Claude Desktop</div>
+                        <p style="font-size:.82rem;color:var(--text-light);">Ouvre l'application <strong>Claude Desktop</strong> sur ton ordinateur (pas le site web). Si tu ne l'as pas, telecharge-la sur <em>claude.ai/download</em>.</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+                    <div style="min-width:32px;height:32px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;">3</div>
+                    <div>
+                        <div style="font-weight:700;font-size:.9rem;margin-bottom:2px;">Ouvre ton Drive dans Chrome</div>
+                        <p style="font-size:.82rem;color:var(--text-light);">Avant de coller le prompt, ouvre un onglet Chrome sur ton site Drive (${cfg.name}) et <strong>connecte-toi a ton compte</strong>. Claude en aura besoin pour naviguer.</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+                    <div style="min-width:32px;height:32px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;">4</div>
+                    <div>
+                        <div style="font-weight:700;font-size:.9rem;margin-bottom:2px;">Colle le prompt dans Claude</div>
+                        <p style="font-size:.82rem;color:var(--text-light);">Dans Claude Desktop, colle le texte copie a l'etape 1 (<strong>Ctrl+V</strong>) et envoie le message. Choisis de preference le modele <strong>Sonnet</strong> (rapide et efficace pour cette tache).</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+                    <div style="min-width:32px;height:32px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;">5</div>
+                    <div>
+                        <div style="font-weight:700;font-size:.9rem;margin-bottom:2px;">Laisse Claude travailler</div>
+                        <p style="font-size:.82rem;color:var(--text-light);">Claude va piloter Chrome automatiquement : il recherche chaque produit, selectionne le plus pertinent et l'ajoute au panier. <strong>Ne touche pas a Chrome</strong> pendant qu'il travaille. Tu peux suivre sa progression en temps reel.</p>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:4px;">
+                    <div style="min-width:32px;height:32px;background:var(--success);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;">&#10004;</div>
+                    <div>
+                        <div style="font-weight:700;font-size:.9rem;margin-bottom:2px;">Verifie et valide ton panier</div>
+                        <p style="font-size:.82rem;color:var(--text-light);">Une fois termine, Claude te confirmera le total. Verifie les articles dans ton panier Drive, ajuste les quantites si besoin, puis passe ta commande toi-meme.</p>
+                    </div>
+                </div>
+
+                <div style="background:#f0e6ff;border-radius:8px;padding:12px;margin-top:14px;font-size:.8rem;">
+                    <strong>&#128161; Astuces :</strong><br>
+                    &#8226; Si Claude ne trouve pas un article, il essaiera des termes de recherche plus courts automatiquement.<br>
+                    &#8226; Tu peux lui parler pendant qu'il travaille pour corriger ou ajuster ("prends la version bio", "saute cet article", etc.).<br>
+                    &#8226; La premiere fois, Claude te demandera la permission de controler Chrome — accepte pour qu'il puisse naviguer.
+                </div>
+            </div>
+        </div>
+
         <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;">
-            <strong>Astuce manuelle :</strong> Clique sur "Chercher" a cote de chaque article pour l'ouvrir directement dans ton Drive.
+            <strong>&#9997; Mode manuel :</strong> Tu peux aussi chercher chaque article un par un en cliquant sur "Chercher" dans la liste ci-dessous.
         </div>
         <div class="drive-items">
             <h3 style="margin-bottom:14px;">&#128203; ${allItems.length} articles a ajouter</h3>
@@ -1024,6 +1091,18 @@ function renderDrive() {
             `).join('')}
         </div>
     `;
+}
+
+function toggleTuto() {
+    const body = document.getElementById('tutoBody');
+    const arrow = document.getElementById('tutoArrow');
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+    } else {
+        body.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+    }
 }
 
 function openDriveHome() {
