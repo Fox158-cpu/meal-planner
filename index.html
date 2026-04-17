@@ -1089,13 +1089,19 @@ function showDetail(day, mt) {
 function openSwap(day, mt) {
     swapContext = {day, mt};
     const current = weekPlan[day][mt];
-    const alts = shuffle(getFilteredRecipes(mt).filter(r=>r.id!==current.id)).slice(0,4);
-    document.getElementById('swapOptions').innerHTML = alts.map(r => `
+    const all = getFilteredRecipes(mt).filter(r=>r.id!==current.id);
+    // Custom recipes always shown first
+    const customs = all.filter(r => r.isCustom);
+    const builtIn = shuffle(all.filter(r => !r.isCustom)).slice(0, Math.max(2, 6 - customs.length));
+    const alts = [...customs, ...builtIn];
+
+    const renderOption = r => `
         <div class="recipe-option" onclick="selectSwap('${r.id}',this)" data-id="${r.id}">
-            <div class="recipe-option-name">${r.name}</div>
+            <div class="recipe-option-name">${r.name}${r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 6px;border-radius:4px;vertical-align:middle;">perso</span>' : ''}</div>
             <div class="recipe-option-macros">${r.macros.cal} kcal | ${r.macros.prot}g P | ${r.macros.carbs}g G | ${r.macros.fat}g L</div>
-        </div>
-    `).join('');
+        </div>`;
+
+    document.getElementById('swapOptions').innerHTML = alts.map(renderOption).join('');
     document.getElementById('swapModal').classList.add('active');
 }
 
@@ -1499,6 +1505,12 @@ function saveCrRecipe() {
 
     cancelCrForm();
     renderCrList();
+
+    // Propose to regenerate so the new recipe appears in the plan
+    if (currentProfile && confirm('Recette enregistree ! Regenerer le planning pour l\'inclure ?')) {
+        closeModal('customRecipeModal');
+        regenerateAll();
+    }
 }
 
 function editCrRecipe(mt, id) {
