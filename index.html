@@ -155,6 +155,18 @@
             .form-row { grid-template-columns:1fr; }
         }
 
+        /* Custom recipe */
+        .custom-recipe-card { background:#fff; border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+        .custom-recipe-card .cr-info { flex:1; }
+        .custom-recipe-card .cr-name { font-weight:600; font-size:.9rem; }
+        .custom-recipe-card .cr-meta { font-size:.75rem; color:var(--text-light); }
+        .ingredient-row { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+        .ingredient-row input { padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:.82rem; }
+        .ingredient-row .ir-name { flex:2; }
+        .ingredient-row .ir-qty { width:60px; }
+        .ingredient-row .ir-unit { width:60px; }
+        .ingredient-row .ir-cat { flex:1; }
+
         @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         .day-card { animation:fadeIn .3s ease forwards; }
     </style>
@@ -183,6 +195,7 @@
         </div>
         <div class="header-actions">
             <button class="btn btn-secondary" onclick="regenerateAll()">&#8635; Regenerer</button>
+            <button class="btn btn-secondary" onclick="openCustomRecipes()">&#127859; Recettes</button>
             <button class="btn btn-secondary" onclick="openProfileEditor(currentProfile.id)">&#9881; Profil</button>
             <div class="profile-pill" onclick="showWelcome()">
                 <div class="avatar" id="headerAvatar"></div>
@@ -300,6 +313,62 @@
 <!-- Detail Modal -->
 <div class="modal-overlay" id="detailModal"><div class="modal" id="detailContent"></div></div>
 
+<!-- Custom Recipe Modal -->
+<div class="modal-overlay" id="customRecipeModal">
+    <div class="modal" style="max-width:650px;">
+        <h3 id="crModalTitle">&#127859; Mes recettes personnalisees</h3>
+
+        <!-- List of existing custom recipes -->
+        <div id="crList" style="margin-bottom:14px;"></div>
+
+        <!-- Add/Edit form (toggled) -->
+        <div id="crFormContainer" style="display:none;">
+            <div class="form-row">
+                <div class="form-group"><label>Nom de la recette</label><input type="text" id="crName" placeholder="Ex: Mon bowl proteine"></div>
+                <div class="form-group"><label>Type de repas</label>
+                    <select id="crMealType">
+                        <option value="petit_dejeuner">Petit-dejeuner</option>
+                        <option value="dejeuner">Dejeuner</option>
+                        <option value="encas">En-cas</option>
+                        <option value="diner">Diner</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+                <div class="form-group"><label>Calories</label><input type="number" id="crCal" placeholder="450"></div>
+                <div class="form-group"><label>Prot. (g)</label><input type="number" id="crProt" placeholder="30"></div>
+                <div class="form-group"><label>Gluc. (g)</label><input type="number" id="crCarbs" placeholder="40"></div>
+                <div class="form-group"><label>Lip. (g)</label><input type="number" id="crFat" placeholder="15"></div>
+            </div>
+            <div class="form-group">
+                <label>Description courte</label>
+                <input type="text" id="crDesc" placeholder="Ex: Rapide et riche en proteines">
+            </div>
+            <div class="form-group">
+                <label>Ingredients</label>
+                <div id="crIngredients"></div>
+                <button class="btn-sm" onclick="addCrIngredient()" style="margin-top:6px;">&#10133; Ingredient</button>
+            </div>
+            <div class="form-group">
+                <label>Tags</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+                    <span class="restriction-tag" data-cr-tag="no-fish" onclick="toggleCrTag(this)">Pas de poisson</span>
+                    <span class="restriction-tag" data-cr-tag="vegetarian" onclick="toggleCrTag(this)">Vegetarien</span>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+                <button class="btn btn-success" onclick="saveCrRecipe()">&#10004; Enregistrer</button>
+                <button class="btn btn-sm" style="padding:9px 18px;" onclick="cancelCrForm()">Annuler</button>
+            </div>
+        </div>
+
+        <div id="crActions" style="display:flex;gap:10px;margin-top:10px;">
+            <button class="btn btn-primary" onclick="showCrForm()">&#10133; Ajouter une recette</button>
+            <button class="btn btn-sm" style="padding:9px 18px;" onclick="closeModal('customRecipeModal')">Fermer</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // ========== STORAGE ==========
 const STORAGE_KEY = 'mealplanner_team_profiles';
@@ -324,6 +393,8 @@ let tempHousehold = [];
 const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 const MEALS = ['petit_dejeuner','dejeuner','encas','diner'];
 const MEAL_LABELS = { petit_dejeuner:'Petit-dejeuner', dejeuner:'Dejeuner', encas:'En-cas', diner:'Diner' };
+const MEAL_CAL_SPLIT = { petit_dejeuner:0.22, dejeuner:0.33, encas:0.12, diner:0.33 };
+const CUSTOM_RECIPES_PREFIX = 'mealplanner_custom_recipes_';
 
 // ========== DRIVE CONFIGS ==========
 const DRIVE_CONFIGS = {
@@ -487,6 +558,7 @@ function selectProfile(id) {
     const saved = loadPlan(id);
     if (saved) {
         weekPlan = saved;
+        const targetCal = currentProfile.targets?.cal || 2000;
         // Completer les anciens plans qui n'ont pas petit_dejeuner/encas
         const pdj = shuffle(getFilteredRecipes('petit_dejeuner'));
         const enc = shuffle(getFilteredRecipes('encas'));
@@ -494,6 +566,15 @@ function selectProfile(id) {
             if (!weekPlan[d]) weekPlan[d] = {};
             if (!weekPlan[d].petit_dejeuner) weekPlan[d].petit_dejeuner = pdj[i%pdj.length];
             if (!weekPlan[d].encas) weekPlan[d].encas = enc[i%enc.length];
+            // Add portionScale to old plans that don't have it
+            MEALS.forEach(mt => {
+                if (weekPlan[d][mt] && !weekPlan[d][mt].portionScale) {
+                    const mealTargetCal = targetCal * MEAL_CAL_SPLIT[mt];
+                    let scale = mealTargetCal / (weekPlan[d][mt].macros?.cal || 400);
+                    scale = Math.max(0.7, Math.min(2.0, scale));
+                    weekPlan[d][mt].portionScale = Math.round(scale * 100) / 100;
+                }
+            });
         });
         savePlan(id, weekPlan);
     } else { generateWeekPlan(); }
@@ -633,7 +714,9 @@ function getPortionMultiplier(member) {
 
 function getMacros(recipe, member) {
     const mult = getPortionMultiplier(member);
-    return { cal:Math.round(recipe.macros.cal*mult), prot:Math.round(recipe.macros.prot*mult), carbs:Math.round(recipe.macros.carbs*mult), fat:Math.round(recipe.macros.fat*mult), sodium:Math.round(recipe.macros.sodium*mult) };
+    const ps = recipe.portionScale || 1;
+    const factor = mult * ps;
+    return { cal:Math.round(recipe.macros.cal*factor), prot:Math.round(recipe.macros.prot*factor), carbs:Math.round(recipe.macros.carbs*factor), fat:Math.round(recipe.macros.fat*factor), sodium:Math.round((recipe.macros.sodium||0)*factor) };
 }
 
 function getDayMacros(day, member) {
@@ -656,9 +739,16 @@ function getWeekAvg(member) {
 
 function shuffle(a) { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
 
+function loadCustomRecipes(profileId) {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_RECIPES_PREFIX + profileId)) || {}; } catch { return {}; }
+}
+function saveCustomRecipes(profileId, customs) { localStorage.setItem(CUSTOM_RECIPES_PREFIX + profileId, JSON.stringify(customs)); }
+
 function getFilteredRecipes(mealType) {
     const restr = currentProfile?.restrictions || [];
-    return RECIPES[mealType].filter(r => {
+    const builtIn = RECIPES[mealType] || [];
+    const customs = currentProfile ? (loadCustomRecipes(currentProfile.id)[mealType] || []) : [];
+    return [...builtIn, ...customs].filter(r => {
         if (restr.includes('vegetarian') && !r.tags?.includes('vegetarian')) return false;
         return true;
     });
@@ -666,11 +756,32 @@ function getFilteredRecipes(mealType) {
 
 function generateWeekPlan() {
     weekPlan = {};
-    const pdj = shuffle(getFilteredRecipes('petit_dejeuner'));
-    const dej = shuffle(getFilteredRecipes('dejeuner'));
-    const enc = shuffle(getFilteredRecipes('encas'));
-    const din = shuffle(getFilteredRecipes('diner'));
-    DAYS.forEach((d,i) => { weekPlan[d] = { petit_dejeuner:pdj[i%pdj.length], dejeuner:dej[i%dej.length], encas:enc[i%enc.length], diner:din[i%din.length] }; });
+    const targetCal = currentProfile?.targets?.cal || 2000;
+
+    // Shuffle recipe pools per meal type
+    const pools = {};
+    MEALS.forEach(mt => { pools[mt] = shuffle(getFilteredRecipes(mt)); });
+    const idx = {}; // round-robin index per meal type
+    MEALS.forEach(mt => { idx[mt] = 0; });
+
+    DAYS.forEach(d => {
+        weekPlan[d] = {};
+        MEALS.forEach(mt => {
+            const pool = pools[mt];
+            if (!pool.length) return;
+            const recipe = pool[idx[mt] % pool.length];
+            idx[mt]++;
+
+            // Compute portion scale to hit calorie target for this meal type
+            const mealTargetCal = targetCal * MEAL_CAL_SPLIT[mt];
+            let scale = mealTargetCal / (recipe.macros.cal || 400);
+            scale = Math.max(0.7, Math.min(2.0, scale)); // clamp to reasonable range
+            scale = Math.round(scale * 100) / 100;
+
+            // Store recipe with portionScale
+            weekPlan[d][mt] = { ...recipe, portionScale: scale };
+        });
+    });
     if (currentProfile) savePlan(currentProfile.id, weekPlan);
 }
 
@@ -724,10 +835,12 @@ function renderWeek() {
             const r = weekPlan[day]?.[mt];
             if (!r) return;
             const m = getMacros(r, currentMember);
+            const ps = r.portionScale || 1;
+            const psLabel = ps !== 1 ? ` <span style="font-size:.65rem;color:var(--text-light);font-weight:400;">(x${ps})</span>` : '';
             mealsHtml += `
                 <div class="meal-slot">
-                    <div class="meal-type">${MEAL_LABELS[mt]}</div>
-                    <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}</div>
+                    <div class="meal-type">${MEAL_LABELS[mt]}${psLabel}</div>
+                    <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}${r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">perso</span>' : ''}</div>
                     <div class="meal-macros">
                         <span><span class="dot dot-cal"></span>${m.cal} kcal</span>
                         <span><span class="dot dot-prot"></span>${m.prot}g P</span>
@@ -776,8 +889,9 @@ function showDetail(day, mt) {
             <tr style="border-bottom:1px solid var(--border)"><th></th>${headerCols}</tr>
             ${membersRows}
         </table>
-        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${Math.round(totalPortions*10)/10} portions)</h4>
-        <ul style="padding-left:18px;margin-bottom:14px;">${r.ingredients.map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
+        ${r.portionScale && r.portionScale !== 1 ? `<div style="background:#e8f4f8;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem;color:#2d6a4f;">&#9878; Portion ajustee x${r.portionScale} pour atteindre ton objectif calorique</div>` : ''}
+        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${Math.round(totalPortions*10)/10} pers. x${r.portionScale||1})</h4>
+        <ul style="padding-left:18px;margin-bottom:14px;">${(r.ingredients||[]).map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*(r.portionScale||1)*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
         <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Preparation</h4>
         <ol style="padding-left:18px;">${r.steps.map(s=>`<li style="margin-bottom:4px;font-size:.85rem;">${s}</li>`).join('')}</ol>
         <div style="text-align:right;margin-top:14px;"><button class="btn btn-primary" onclick="closeModal('detailModal')">Fermer</button></div>
@@ -808,8 +922,16 @@ function selectSwap(id, el) {
 
 function confirmSwap() {
     if (!swapContext?.selectedId) return;
-    const r = RECIPES[swapContext.mt].find(r=>r.id===swapContext.selectedId);
-    if (r) { weekPlan[swapContext.day][swapContext.mt]=r; savePlan(currentProfile.id, weekPlan); render(); }
+    const allRecipes = getFilteredRecipes(swapContext.mt);
+    const r = allRecipes.find(r=>r.id===swapContext.selectedId);
+    if (r) {
+        const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT[swapContext.mt];
+        let scale = targetCal / (r.macros.cal || 400);
+        scale = Math.max(0.7, Math.min(2.0, Math.round(scale*100)/100));
+        weekPlan[swapContext.day][swapContext.mt] = { ...r, portionScale: scale };
+        savePlan(currentProfile.id, weekPlan);
+        render();
+    }
     closeModal('swapModal');
 }
 
@@ -831,8 +953,9 @@ function buildShoppingList() {
     const totalPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion,0);
     DAYS.forEach(d => MEALS.forEach(mt => {
         const r = weekPlan[d]?.[mt]; if(!r) return;
-        r.ingredients.forEach(i => {
-            const k=i.name; const q=i.qty*totalPortions;
+        const ps = r.portionScale || 1;
+        (r.ingredients||[]).forEach(i => {
+            const k=i.name; const q=i.qty*totalPortions*ps;
             if(!items[k]) items[k]={name:i.name,qty:0,unit:i.unit,cat:i.cat};
             items[k].qty+=q;
         });
@@ -966,6 +1089,163 @@ Instructions:
         el.style.display = 'block';
         setTimeout(() => { el.style.display = 'none'; }, 5000);
     });
+}
+
+// ========== CUSTOM RECIPES ==========
+
+let crEditingId = null;
+let crTags = [];
+
+function openCustomRecipes() {
+    crEditingId = null;
+    crTags = [];
+    document.getElementById('crFormContainer').style.display = 'none';
+    document.getElementById('crActions').style.display = 'flex';
+    renderCrList();
+    document.getElementById('customRecipeModal').classList.add('active');
+}
+
+function renderCrList() {
+    const customs = loadCustomRecipes(currentProfile.id);
+    const el = document.getElementById('crList');
+    let html = '';
+    let hasAny = false;
+    MEALS.forEach(mt => {
+        const list = customs[mt] || [];
+        if (!list.length) return;
+        hasAny = true;
+        html += `<div style="font-size:.75rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px;">${MEAL_LABELS[mt]}</div>`;
+        list.forEach(r => {
+            html += `<div class="custom-recipe-card">
+                <div class="cr-info">
+                    <div class="cr-name">${r.name}</div>
+                    <div class="cr-meta">${r.macros.cal} kcal | ${r.macros.prot}g P | ${r.macros.carbs}g G | ${r.macros.fat}g L${r.tags?.length ? ' | ' + r.tags.join(', ') : ''}</div>
+                </div>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn-sm" onclick="editCrRecipe('${mt}','${r.id}')">&#9998;</button>
+                    <button class="btn-sm" style="color:var(--danger);" onclick="deleteCrRecipe('${mt}','${r.id}')">&#128465;</button>
+                </div>
+            </div>`;
+        });
+    });
+    if (!hasAny) html = '<p style="color:var(--text-light);font-size:.85rem;text-align:center;padding:20px 0;">Aucune recette perso. Ajoute les tiennes !</p>';
+    el.innerHTML = html;
+}
+
+function showCrForm(mt, recipe) {
+    crEditingId = recipe?.id || null;
+    crTags = recipe?.tags ? [...recipe.tags] : ['no-fish'];
+    document.getElementById('crName').value = recipe?.name || '';
+    document.getElementById('crMealType').value = mt || 'dejeuner';
+    document.getElementById('crCal').value = recipe?.macros?.cal || '';
+    document.getElementById('crProt').value = recipe?.macros?.prot || '';
+    document.getElementById('crCarbs').value = recipe?.macros?.carbs || '';
+    document.getElementById('crFat').value = recipe?.macros?.fat || '';
+    document.getElementById('crDesc').value = recipe?.desc || '';
+
+    // Reset tag UI
+    document.querySelectorAll('[data-cr-tag]').forEach(el => {
+        el.classList.toggle('active', crTags.includes(el.dataset.crTag));
+    });
+
+    // Populate ingredients
+    const ingEl = document.getElementById('crIngredients');
+    ingEl.innerHTML = '';
+    if (recipe?.ingredients?.length) {
+        recipe.ingredients.forEach(i => addCrIngredient(i));
+    } else {
+        addCrIngredient(); addCrIngredient(); addCrIngredient();
+    }
+
+    document.getElementById('crFormContainer').style.display = 'block';
+    document.getElementById('crActions').style.display = 'none';
+}
+
+function cancelCrForm() {
+    document.getElementById('crFormContainer').style.display = 'none';
+    document.getElementById('crActions').style.display = 'flex';
+    crEditingId = null;
+}
+
+function addCrIngredient(data) {
+    const row = document.createElement('div');
+    row.className = 'ingredient-row';
+    const cats = ['Viandes','Legumes','Fruits','Feculents','Produits laitiers','Epicerie','Surgeles'];
+    row.innerHTML = `
+        <input class="ir-name" type="text" placeholder="Nom" value="${data?.name||''}">
+        <input class="ir-qty" type="number" placeholder="Qte" value="${data?.qty||''}">
+        <input class="ir-unit" type="text" placeholder="g/ml/pc" value="${data?.unit||'g'}">
+        <select class="ir-cat">${cats.map(c=>`<option value="${c}" ${data?.cat===c?'selected':''}>${c}</option>`).join('')}</select>
+        <button class="btn-sm" onclick="this.parentElement.remove()" style="color:var(--danger);padding:4px 8px;">&#10005;</button>
+    `;
+    document.getElementById('crIngredients').appendChild(row);
+}
+
+function toggleCrTag(el) {
+    const tag = el.dataset.crTag;
+    const idx = crTags.indexOf(tag);
+    if (idx >= 0) { crTags.splice(idx, 1); el.classList.remove('active'); }
+    else { crTags.push(tag); el.classList.add('active'); }
+}
+
+function saveCrRecipe() {
+    const name = document.getElementById('crName').value.trim();
+    const mt = document.getElementById('crMealType').value;
+    const cal = parseInt(document.getElementById('crCal').value) || 0;
+    const prot = parseInt(document.getElementById('crProt').value) || 0;
+    const carbs = parseInt(document.getElementById('crCarbs').value) || 0;
+    const fat = parseInt(document.getElementById('crFat').value) || 0;
+    const desc = document.getElementById('crDesc').value.trim() || 'Recette personnalisee';
+
+    if (!name || !cal) { alert('Remplis au moins le nom et les calories.'); return; }
+
+    // Collect ingredients
+    const ingredients = [];
+    document.querySelectorAll('#crIngredients .ingredient-row').forEach(row => {
+        const iname = row.querySelector('.ir-name').value.trim();
+        const qty = parseFloat(row.querySelector('.ir-qty').value) || 0;
+        const unit = row.querySelector('.ir-unit').value.trim() || 'g';
+        const cat = row.querySelector('.ir-cat').value;
+        if (iname && qty > 0) ingredients.push({ name:iname, qty, unit, cat });
+    });
+
+    const customs = loadCustomRecipes(currentProfile.id);
+    if (!customs[mt]) customs[mt] = [];
+
+    const recipe = {
+        id: crEditingId || ('custom_' + Date.now()),
+        name, basePortion:1,
+        macros: { cal, prot, carbs, fat, sodium:0 },
+        ingredients,
+        steps: ['Preparation personnalisee.'],
+        desc,
+        tags: [...crTags],
+        isCustom: true
+    };
+
+    if (crEditingId) {
+        // Update: might be in a different meal type, so remove from all first
+        MEALS.forEach(m => { if(customs[m]) customs[m] = customs[m].filter(r=>r.id!==crEditingId); });
+    }
+    customs[mt].push(recipe);
+    saveCustomRecipes(currentProfile.id, customs);
+
+    cancelCrForm();
+    renderCrList();
+}
+
+function editCrRecipe(mt, id) {
+    const customs = loadCustomRecipes(currentProfile.id);
+    const recipe = (customs[mt]||[]).find(r=>r.id===id);
+    if (recipe) showCrForm(mt, recipe);
+}
+
+function deleteCrRecipe(mt, id) {
+    if (!confirm('Supprimer cette recette ?')) return;
+    const customs = loadCustomRecipes(currentProfile.id);
+    if (customs[mt]) customs[mt] = customs[mt].filter(r=>r.id!==id);
+    saveCustomRecipes(currentProfile.id, customs);
+    renderCrList();
 }
 
 // ========== MODALS ==========
