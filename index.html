@@ -804,11 +804,17 @@ function renderDrive() {
     el.innerHTML = `
         <div class="drive-banner" style="background:linear-gradient(135deg,${cfg.color},${cfg.color}dd)">
             <h2>&#128666; ${cfg.name}${currentProfile.driveLocation ? ' — '+currentProfile.driveLocation : ''}</h2>
-            <p>Ouvre ton Drive et recherche chaque article</p>
-            <button class="btn" style="background:#fff;color:${cfg.color};font-weight:700;padding:12px 24px;" onclick="openDriveHome()">&#127757; Ouvrir ${cfg.name}</button>
+            <p>Remplis ton panier automatiquement avec Claude ou manuellement article par article</p>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn" style="background:#fff;color:${cfg.color};font-weight:700;padding:12px 24px;" onclick="openDriveHome()">&#127757; Ouvrir ${cfg.name}</button>
+                <button class="btn" style="background:#7c3aed;color:#fff;font-weight:700;padding:12px 24px;" onclick="copyForClaude()">&#129302; Copier pour Claude</button>
+            </div>
+        </div>
+        <div id="claudeCopySuccess" style="display:none;background:#d4edda;border:1px solid #28a745;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;text-align:center;">
+            <strong>&#10004; Prompt copie !</strong> Colle-le dans une conversation Claude (modele Sonnet) pour remplir ton panier automatiquement.
         </div>
         <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:16px;font-size:.85rem;">
-            <strong>Astuce :</strong> Clique sur "Chercher" a cote de chaque article pour l'ouvrir directement dans ton Drive. Coche au fur et a mesure.
+            <strong>Astuce manuelle :</strong> Clique sur "Chercher" a cote de chaque article pour l'ouvrir directement dans ton Drive.
         </div>
         <div class="drive-items">
             <h3 style="margin-bottom:14px;">&#128203; ${allItems.length} articles a ajouter</h3>
@@ -838,6 +844,59 @@ function searchDrive(term) {
     const cfg = DRIVE_CONFIGS[currentProfile.driveType];
     if (!cfg) return;
     window.open(cfg.searchUrl(currentProfile.driveLocation, term, currentProfile.driveCustomUrl), '_blank');
+}
+
+// ========== COPY FOR CLAUDE ==========
+
+function copyForClaude() {
+    const cfg = DRIVE_CONFIGS[currentProfile.driveType];
+    const grouped = buildShoppingList();
+    const allItems = [];
+    Object.entries(grouped).forEach(([cat,items])=>items.forEach(i=>allItems.push(i)));
+
+    // Build compact item list
+    const itemLines = allItems
+        .sort((a,b)=>a.cat.localeCompare(b.cat)||a.name.localeCompare(b.name))
+        .map(i=>`- ${i.name} (${i.qty} ${i.unit})`)
+        .join('\n');
+
+    // Build the Drive URL info
+    let driveInfo = cfg.name;
+    if (currentProfile.driveLocation) {
+        driveInfo += '\nURL magasin: ' + currentProfile.driveLocation;
+    }
+
+    // Optimized prompt for Sonnet
+    const prompt = `Remplis mon panier ${cfg.name} avec ces ${allItems.length} articles.
+
+Drive: ${driveInfo}
+
+Articles:
+${itemLines}
+
+Instructions:
+1. Ouvre l'URL du magasin
+2. Pour chaque article: recherche le produit, clique sur le 1er resultat pertinent, ajoute au panier (quantite 1 sauf si l'unite est en g/ml alors arrondis a l'emballage standard)
+3. Si un produit n'est pas trouve, essaie un terme plus court (ex: "escalope poulet" au lieu de "Escalope de dinde")
+4. Si popup cookies: clique "Continuer sans accepter"
+5. Confirme le total a la fin`;
+
+    navigator.clipboard.writeText(prompt).then(() => {
+        const el = document.getElementById('claudeCopySuccess');
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }).catch(() => {
+        // Fallback: show in a textarea
+        const ta = document.createElement('textarea');
+        ta.value = prompt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        const el = document.getElementById('claudeCopySuccess');
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 5000);
+    });
 }
 
 // ========== MODALS ==========
