@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meal Planner — Team Edition</title>
+    <title>+ de potin - de popotin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -24,17 +24,37 @@
             --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
             --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
             --radius: 16px; --radius-sm: 10px; --radius-xs: 8px;
+            --header-bg: rgba(255,255,255,.88); --header-border: var(--border);
+            --input-bg: var(--card);
+        }
+        [data-theme="dark"] {
+            --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --text-mid: #cbd5e1;
+            --text-light: #64748b; --border: #334155; --border-light: #1e293b;
+            --primary: #22c55e; --primary-light: #4ade80; --primary-dark: #16a34a;
+            --success: #22c55e; --success-light: rgba(34,197,94,.12);
+            --danger-light: rgba(239,68,68,.12);
+            --protein-light: rgba(139,92,246,.12);
+            --carbs-light: rgba(6,182,212,.12);
+            --fat-light: rgba(245,158,11,.12);
+            --cal-light: rgba(239,68,68,.12);
+            --purple-light: rgba(124,58,237,.12);
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+            --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,0.4);
+            --header-bg: rgba(15,23,42,.92); --header-border: #334155;
+            --input-bg: #0f172a;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; -webkit-font-smoothing:antialiased; }
+        body { font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; -webkit-font-smoothing:antialiased; transition:background .3s, color .3s; }
 
         /* Header */
         .header {
             background:var(--card); color:var(--text); padding:14px 28px;
             display:flex; justify-content:space-between; align-items:center;
             position:sticky; top:0; z-index:100;
-            border-bottom:1px solid var(--border);
-            backdrop-filter:blur(12px); background:rgba(255,255,255,.88);
+            border-bottom:1px solid var(--header-border);
+            backdrop-filter:blur(12px); background:var(--header-bg);
         }
         .header h1 { font-size:1.15rem; font-weight:700; letter-spacing:-.02em; color:var(--primary-dark); }
         .header-sub { font-size:.78rem; color:var(--text-light); margin-top:1px; font-weight:500; }
@@ -156,7 +176,7 @@
         .form-group input, .form-group select, .form-group textarea {
             width:100%; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-xs);
             font-size:.88rem; font-family:inherit; transition:border-color .15s, box-shadow .15s;
-            background:var(--card);
+            background:var(--input-bg); color:var(--text);
         }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(22,163,74,.1);
@@ -263,6 +283,33 @@
         .ingredient-row .ir-unit { width:60px; }
         .ingredient-row .ir-cat { flex:1; }
 
+        /* Dark mode toggle */
+        .theme-toggle {
+            width:40px; height:24px; border-radius:12px; border:none; cursor:pointer;
+            background:var(--border); position:relative; transition:background .2s; padding:0;
+        }
+        .theme-toggle::after {
+            content:''; position:absolute; top:3px; left:3px; width:18px; height:18px;
+            border-radius:50%; background:#fff; transition:transform .2s; box-shadow:var(--shadow-sm);
+        }
+        [data-theme="dark"] .theme-toggle { background:var(--primary); }
+        [data-theme="dark"] .theme-toggle::after { transform:translateX(16px); }
+
+        /* Dark mode specifics */
+        [data-theme="dark"] .btn-sm { background:var(--card); border-color:var(--border); color:var(--text-mid); }
+        [data-theme="dark"] .btn-sm:hover { background:var(--border); }
+        [data-theme="dark"] .btn-secondary { background:var(--card); border-color:var(--border); color:var(--text-mid); }
+        [data-theme="dark"] .ingredient-row input, [data-theme="dark"] .ingredient-row select { background:var(--input-bg); color:var(--text); border-color:var(--border); }
+        [data-theme="dark"] .profile-card { background:var(--card); }
+        [data-theme="dark"] .shopping-category-header { background:rgba(34,197,94,.15); color:var(--primary-light); }
+        [data-theme="dark"] .profile-pill { background:rgba(34,197,94,.1); border-color:var(--border); color:var(--primary-light); }
+        [data-theme="dark"] .restriction-tag { color:var(--text-mid); border-color:var(--border); }
+        [data-theme="dark"] .recipe-option:hover { background:rgba(34,197,94,.08); }
+        [data-theme="dark"] .recipe-option.selected { background:rgba(34,197,94,.12); }
+        [data-theme="dark"] .member-pill { background:var(--card); color:var(--text-mid); border-color:var(--border); }
+        [data-theme="dark"] .member-pill:hover:not(.active) { background:rgba(34,197,94,.08); }
+        [data-theme="dark"] .custom-recipe-card:hover { background:rgba(34,197,94,.08); }
+
         /* Scrollbar */
         ::-webkit-scrollbar { width:6px; }
         ::-webkit-scrollbar-track { background:transparent; }
@@ -278,7 +325,8 @@
 <!-- Welcome / Profile Selector -->
 <div id="welcomeScreen" style="display:none">
     <div class="header">
-        <div><h1>&#127869; Meal Planner — Team</h1><div class="header-sub">Planification de repas collaborative</div></div>
+        <div><h1>&#127834; + de potin - de popotin</h1><div class="header-sub">Planifie, mange bien, partage !</div></div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Mode sombre / clair"></button>
     </div>
     <div class="welcome">
         <h2>Bienvenue !</h2>
@@ -292,13 +340,14 @@
 <div id="mainApp" style="display:none">
     <div class="header">
         <div>
-            <h1>&#127869; Meal Planner — Team</h1>
+            <h1>&#127834; + de potin - de popotin</h1>
             <div class="header-sub" id="headerSub"></div>
         </div>
         <div class="header-actions">
             <button class="btn btn-secondary" onclick="regenerateAll()">&#8635; Regenerer</button>
             <button class="btn btn-secondary" onclick="openCustomRecipes()">&#127859; Mes recettes</button>
             <button class="btn btn-secondary" onclick="openProfileEditor(currentProfile.id)">&#9881; Profil</button>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Mode sombre / clair"></button>
             <div class="profile-pill" onclick="showWelcome()">
                 <div class="avatar" id="headerAvatar"></div>
                 <span id="headerName"></span> &#9662;
@@ -1642,6 +1691,20 @@ function dismissImportBanner() {
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 document.addEventListener('click', e => { if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('active'); });
+
+// ========== THEME ==========
+function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const next = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('mealplanner_theme', next);
+}
+(function initTheme() {
+    const saved = localStorage.getItem('mealplanner_theme');
+    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+})();
 
 // ========== INIT ==========
 checkShareLink();
