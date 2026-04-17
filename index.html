@@ -394,7 +394,7 @@ const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche']
 const MEALS = ['petit_dejeuner','dejeuner','encas','diner'];
 const MEAL_LABELS = { petit_dejeuner:'Petit-dejeuner', dejeuner:'Dejeuner', encas:'En-cas', diner:'Diner' };
 const MEAL_CAL_SPLIT = { petit_dejeuner:0.22, dejeuner:0.33, encas:0.12, diner:0.33 };
-const CUSTOM_RECIPES_PREFIX = 'mealplanner_custom_recipes_';
+const CUSTOM_RECIPES_KEY = 'mealplanner_custom_recipes_shared';
 
 // ========== DRIVE CONFIGS ==========
 const DRIVE_CONFIGS = {
@@ -739,15 +739,15 @@ function getWeekAvg(member) {
 
 function shuffle(a) { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
 
-function loadCustomRecipes(profileId) {
-    try { return JSON.parse(localStorage.getItem(CUSTOM_RECIPES_PREFIX + profileId)) || {}; } catch { return {}; }
+function loadCustomRecipes() {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_RECIPES_KEY)) || {}; } catch { return {}; }
 }
-function saveCustomRecipes(profileId, customs) { localStorage.setItem(CUSTOM_RECIPES_PREFIX + profileId, JSON.stringify(customs)); }
+function saveCustomRecipes(customs) { localStorage.setItem(CUSTOM_RECIPES_KEY, JSON.stringify(customs)); }
 
 function getFilteredRecipes(mealType) {
     const restr = currentProfile?.restrictions || [];
     const builtIn = RECIPES[mealType] || [];
-    const customs = currentProfile ? (loadCustomRecipes(currentProfile.id)[mealType] || []) : [];
+    const customs = loadCustomRecipes()[mealType] || [];
     return [...builtIn, ...customs].filter(r => {
         if (restr.includes('vegetarian') && !r.tags?.includes('vegetarian')) return false;
         return true;
@@ -1185,7 +1185,7 @@ function openCustomRecipes() {
 }
 
 function renderCrList() {
-    const customs = loadCustomRecipes(currentProfile.id);
+    const customs = loadCustomRecipes();
     const el = document.getElementById('crList');
     let html = '';
     let hasAny = false;
@@ -1288,7 +1288,7 @@ function saveCrRecipe() {
         if (iname && qty > 0) ingredients.push({ name:iname, qty, unit, cat });
     });
 
-    const customs = loadCustomRecipes(currentProfile.id);
+    const customs = loadCustomRecipes();
     if (!customs[mt]) customs[mt] = [];
 
     const recipe = {
@@ -1307,23 +1307,23 @@ function saveCrRecipe() {
         MEALS.forEach(m => { if(customs[m]) customs[m] = customs[m].filter(r=>r.id!==crEditingId); });
     }
     customs[mt].push(recipe);
-    saveCustomRecipes(currentProfile.id, customs);
+    saveCustomRecipes(customs);
 
     cancelCrForm();
     renderCrList();
 }
 
 function editCrRecipe(mt, id) {
-    const customs = loadCustomRecipes(currentProfile.id);
+    const customs = loadCustomRecipes();
     const recipe = (customs[mt]||[]).find(r=>r.id===id);
     if (recipe) showCrForm(mt, recipe);
 }
 
 function deleteCrRecipe(mt, id) {
     if (!confirm('Supprimer cette recette ?')) return;
-    const customs = loadCustomRecipes(currentProfile.id);
+    const customs = loadCustomRecipes();
     if (customs[mt]) customs[mt] = customs[mt].filter(r=>r.id!==id);
-    saveCustomRecipes(currentProfile.id, customs);
+    saveCustomRecipes(customs);
     renderCrList();
 }
 
