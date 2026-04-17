@@ -267,9 +267,9 @@
             </select>
         </div>
         <div class="form-group" id="driveLocationGroup">
-            <label id="driveLocationLabel">Ville ou identifiant magasin</label>
-            <input type="text" id="pDriveLocation" placeholder="Ex: Villenave d'Ornon">
-            <div class="form-hint" id="driveLocationHint">Indique ta ville ou l'identifiant de ton magasin Drive.</div>
+            <label id="driveLocationLabel">URL de ton magasin Drive</label>
+            <input type="text" id="pDriveLocation" placeholder="">
+            <div class="form-hint" id="driveLocationHint"></div>
         </div>
         <div class="form-group" id="driveCustomGroup" style="display:none">
             <label>URL de recherche (utilise {query} pour le terme)</label>
@@ -330,26 +330,31 @@ const DRIVE_CONFIGS = {
     leclerc: {
         name: 'E.Leclerc Drive',
         color: '#e30613',
-        searchUrl: (loc, q) => `https://www.leclercdrive.fr/magasin-000175-${encodeURIComponent(loc.replace(/ /g,'+'))}/recherche?q=${encodeURIComponent(q)}`,
-        homeUrl: (loc) => `https://www.leclercdrive.fr/magasin-000175-${encodeURIComponent(loc.replace(/ /g,'+'))}/`
+        needsStoreUrl: true,
+        searchUrl: (loc, q) => {
+            // loc = URL complete du magasin, ex: https://fd5-courses.leclercdrive.fr/magasin-233301-233301-Villenave-dOrnon/
+            const base = loc.replace(/\/+$/, '');
+            return `${base}/recherche.aspx?TexteRecherche=${encodeURIComponent(q)}`;
+        },
+        homeUrl: (loc) => loc || 'https://www.leclercdrive.fr/'
     },
     carrefour: {
         name: 'Carrefour Drive',
         color: '#004e9a',
         searchUrl: (loc, q) => `https://www.carrefour.fr/s?q=${encodeURIComponent(q)}`,
-        homeUrl: () => 'https://www.carrefour.fr/'
+        homeUrl: () => 'https://www.carrefour.fr/r'
     },
     auchan: {
         name: 'Auchan Drive',
         color: '#e31837',
         searchUrl: (loc, q) => `https://www.auchan.fr/recherche?text=${encodeURIComponent(q)}`,
-        homeUrl: () => 'https://www.auchan.fr/'
+        homeUrl: () => 'https://www.auchan.fr/courses'
     },
     intermarche: {
         name: 'Intermarche Drive',
         color: '#dc2d28',
-        searchUrl: (loc, q) => `https://www.intermarche.com/recherche?q=${encodeURIComponent(q)}`,
-        homeUrl: () => 'https://www.intermarche.com/'
+        searchUrl: (loc, q) => `https://www.intermarche.com/courses-en-ligne/recherche?q=${encodeURIComponent(q)}`,
+        homeUrl: () => 'https://www.intermarche.com/courses-en-ligne'
     },
     coursesu: {
         name: 'Courses U',
@@ -485,15 +490,24 @@ function toggleRestriction(el) { el.classList.toggle('active'); }
 function updateDriveFields() {
     const type = document.getElementById('pDriveType').value;
     document.getElementById('driveCustomGroup').style.display = type === 'custom' ? 'block' : 'none';
-    document.getElementById('driveLocationGroup').style.display = type !== 'custom' ? 'block' : 'none';
-    const hints = {
-        leclerc: 'Ville du magasin (ex: Villenave d\'Ornon)',
-        carrefour: 'Optionnel — la recherche Carrefour est nationale',
-        auchan: 'Optionnel — la recherche Auchan est nationale',
-        intermarche: 'Optionnel',
-        coursesu: 'Optionnel'
-    };
-    document.getElementById('driveLocationHint').textContent = hints[type] || '';
+    const cfg = DRIVE_CONFIGS[type];
+    const locGroup = document.getElementById('driveLocationGroup');
+    const locLabel = document.getElementById('driveLocationLabel');
+    const locInput = document.getElementById('pDriveLocation');
+    const locHint = document.getElementById('driveLocationHint');
+
+    if (type === 'custom') {
+        locGroup.style.display = 'none';
+    } else if (cfg?.needsStoreUrl) {
+        // Leclerc : besoin de l'URL complete du magasin
+        locGroup.style.display = 'block';
+        locLabel.textContent = 'URL de ton magasin Leclerc Drive';
+        locInput.placeholder = 'https://fd5-courses.leclercdrive.fr/magasin-XXXXX-XXXXX-TaVille/';
+        locHint.innerHTML = 'Va sur <a href="https://www.leclercdrive.fr/" target="_blank" style="color:var(--primary)">leclercdrive.fr</a>, choisis ton magasin, puis copie-colle l\'URL de la barre d\'adresse ici.';
+    } else {
+        // Autres drives nationaux : pas besoin d'URL
+        locGroup.style.display = 'none';
+    }
 }
 
 function saveProfile() {
