@@ -127,8 +127,12 @@
             display:flex; justify-content:space-between; align-items:center;
         }
         .day-macros-mini { font-size:.72rem; opacity:.9; font-weight:500; background:rgba(255,255,255,.2); padding:2px 8px; border-radius:12px; }
-        .meal-slot { padding:14px 16px; border-bottom:1px solid var(--border-light); }
+        .meal-slot { padding:14px 16px; border-bottom:1px solid var(--border-light); transition:opacity .2s; }
+        .meal-slot.meal-skipped { opacity:.4; }
+        .meal-slot.meal-skipped .meal-name { text-decoration:line-through; }
         .meal-slot:last-child { border-bottom:none; }
+        .btn-skip { font-size:.7rem; opacity:.6; }
+        .btn-skip.skip-active { opacity:1; background:var(--text-light) !important; color:#fff !important; }
         .meal-type { font-size:.68rem; text-transform:uppercase; color:var(--primary); font-weight:700; letter-spacing:.8px; margin-bottom:5px; }
         .meal-name { font-size:.9rem; font-weight:600; margin-bottom:6px; cursor:pointer; color:var(--text); transition:color .15s; }
         .meal-name:hover { color:var(--primary); }
@@ -994,6 +998,29 @@ function getMealForMember(day, mt, member) {
     return dayPlan[mt] || null;
 }
 
+// Check if a meal is skipped for a member
+function isMealSkipped(day, mt, member) {
+    return weekPlan[day]?._skippedMeals?.[member]?.[mt] === true;
+}
+
+// Toggle skip for a meal/member
+function toggleSkipMeal(day, mt) {
+    if (!weekPlan[day]) return;
+    if (!weekPlan[day]._skippedMeals) weekPlan[day]._skippedMeals = {};
+    if (!weekPlan[day]._skippedMeals[currentMember]) weekPlan[day]._skippedMeals[currentMember] = {};
+    weekPlan[day]._skippedMeals[currentMember][mt] = !weekPlan[day]._skippedMeals[currentMember][mt];
+    savePlan(currentProfile.id, weekPlan);
+    render();
+}
+
+// Check if current member has gamelle for a given day
+function hasGamelle(day, member) {
+    const gm = weekPlan[day]?._gamelleMembers;
+    if (gm) return gm.includes(member);
+    // Legacy: check old flag on diner
+    return weekPlan[day]?.diner?.gamelle === true;
+}
+
 function getMacros(recipe, member) {
     const mult = getPortionMultiplier(member);
     const ps = recipe.portionScale || 1;
@@ -1004,6 +1031,7 @@ function getMacros(recipe, member) {
 function getDayMacros(day, member) {
     let t = {cal:0,prot:0,carbs:0,fat:0,sodium:0};
     MEALS.forEach(mt => {
+        if (isMealSkipped(day, mt, member)) return;
         const r = getMealForMember(day, mt, member);
         if (r) {
             const m = getMacros(r, member);
@@ -1148,14 +1176,18 @@ function renderWeek() {
         MEALS.forEach(mt => {
             const r = getMealForMember(day, mt, currentMember);
             if (!r) return;
-            const m = getMacros(r, currentMember);
+            const skipped = isMealSkipped(day, mt, currentMember);
+            const m = skipped ? {cal:0,prot:0,carbs:0,fat:0} : getMacros(r, currentMember);
             const ps = r.portionScale || 1;
             const psLabel = ps !== 1 ? ` <span style="font-size:.65rem;color:var(--text-light);font-weight:400;">(x${ps})</span>` : '';
             const isShared = (currentProfile.sharedMeals || {diner:true})[mt] && (currentProfile.household||[]).length > 0;
             const sharedIcon = (currentProfile.household||[]).length > 0 ? (isShared ? ' <span style="font-size:.6rem;opacity:.7;" title="Repas commun">&#128101;</span>' : ' <span style="font-size:.6rem;opacity:.5;" title="Repas solo">&#128100;</span>') : '';
+            const memberGamelle = mt === 'diner' && hasGamelle(day, currentMember);
+            const dayIdx = DAYS.indexOf(day);
+            const canGamelle = mt === 'diner' && dayIdx < DAYS.length - 1;
             mealsHtml += `
-                <div class="meal-slot">
-                    <div class="meal-type">${MEAL_LABELS[mt]}${sharedIcon}${psLabel}</div>
+                <div class="meal-slot${skipped ? ' meal-skipped' : ''}">
+                    <div class="meal-type">${MEAL_LABELS[mt]}${sharedIcon}${psLabel}${skipped ? ' <span style="font-size:.6rem;color:var(--text-light);">— hors programme</span>' : ''}</div>
                     <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}${r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">perso</span>' : ''}${r.isGamelle ? ' <span class="gamelle-badge">gamelle</span>' : ''}</div>
                     <div class="meal-macros">
                         <span><span class="dot dot-cal"></span>${m.cal} kcal</span>
@@ -1164,10 +1196,13 @@ function renderWeek() {
                         <span><span class="dot dot-fat"></span>${m.fat}g L</span>
                     </div>
                     <div class="meal-actions">
+                        <button class="btn-sm btn-skip${skipped ? ' skip-active' : ''}" onclick="toggleSkipMeal('${day}','${mt}')" title="${skipped ? 'Remettre au programme' : 'Retirer du programme (resto, absent...)'}">${skipped ? '✅ Remettre' : '🚫 Passer'}</button>
+                        ${!skipped ? `
                         <button class="btn-sm" onclick="openSwap('${day}','${mt}')">&#128260; Changer</button>
                         <button class="btn-sm" onclick="openDuplicate('${day}','${mt}')" title="Dupliquer sur d'autres jours">&#128203; Dupliquer</button>
                         <button class="btn-sm" onclick="showDetail('${day}','${mt}')">&#128196; Details</button>
-                        ${mt === 'diner' ? `<button class="btn-sm${r.gamelle ? ' gamelle-active' : ''}" onclick="toggleGamelle('${day}')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle${r.gamelle ? ' ✓' : ''}</button>` : ''}
+                        ${canGamelle ? `<button class="btn-sm${memberGamelle ? ' gamelle-active' : ''}" onclick="toggleGamelle('${day}')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle${memberGamelle ? ' ✓' : ''}</button>` : ''}
+                        ` : ''}
                     </div>
                 </div>`;
         });
@@ -1212,8 +1247,29 @@ function showDetail(day, mt) {
             ${membersRows}
         </table>
         ${r.portionScale && r.portionScale !== 1 ? `<div style="background:var(--success-light);border:1px solid var(--primary);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem;color:var(--primary);">&#9878; Portion ajustee x${r.portionScale} pour atteindre ton objectif calorique</div>` : ''}
-        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${isShared ? Math.round(totalPortions*10)/10+' pers.' : 'solo'} x${r.portionScale||1}${r.gamelle ? ' x2 gamelle' : ''})</h4>
-        <ul style="padding-left:18px;margin-bottom:14px;">${(r.ingredients||[]).map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*(r.portionScale||1)*gamelleMult*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
+        ${(() => {
+            const gi = r.gamelle ? getGamelleInfo(day) : null;
+            if (gi) {
+                const dinerLabel = isShared ? Math.round(gi.dinerPortions*10)/10+' pers.' : 'solo';
+                const lunchLabel = (currentProfile.sharedMeals||{diner:true}).dejeuner && (currentProfile.household||[]).length > 0
+                    ? Math.round(gi.lunchPortions*10)/10+' pers.' : 'solo';
+                return '<div style="background:var(--accent);color:#fff;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem;">' +
+                    '&#127859; <strong>Gamelle active</strong> — Quantites totales a preparer : ' +
+                    'diner (' + dinerLabel + ' x' + gi.dinerPS + ') + dejeuner demain (' + lunchLabel + ' x' + gi.lunchPS + ')' +
+                    '</div>' +
+                    '<h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (total a cuisiner)</h4>' +
+                    '<ul style="padding-left:18px;margin-bottom:14px;">' +
+                    (r.ingredients||[]).map(i =>
+                        '<li style="margin-bottom:3px;font-size:.85rem;">' + Math.round(i.qty * gi.totalFactor * 10) / 10 + ' ' + i.unit + ' — ' + i.name + '</li>'
+                    ).join('') + '</ul>';
+            } else {
+                return '<h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (' + (isShared ? Math.round(totalPortions*10)/10+' pers.' : 'solo') + ' x' + (r.portionScale||1) + ')</h4>' +
+                    '<ul style="padding-left:18px;margin-bottom:14px;">' +
+                    (r.ingredients||[]).map(i =>
+                        '<li style="margin-bottom:3px;font-size:.85rem;">' + Math.round(i.qty * totalPortions * (r.portionScale||1) * 10) / 10 + ' ' + i.unit + ' — ' + i.name + '</li>'
+                    ).join('') + '</ul>';
+            }
+        })()}
         <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Preparation</h4>
         <ol style="padding-left:18px;">${r.steps.map(s=>`<li style="margin-bottom:4px;font-size:.85rem;">${s}</li>`).join('')}</ol>
         <div style="text-align:right;margin-top:14px;"><button class="btn btn-primary" onclick="closeModal('detailModal')">Fermer</button></div>
@@ -1331,35 +1387,119 @@ function confirmDuplicate() {
 
 // ========== GAMELLE ==========
 
+// Get the list of members who have gamelle for a given day
+function getGamelleMembers(day) {
+    const gm = weekPlan[day]?._gamelleMembers;
+    if (gm) return [...gm];
+    // Legacy: if old gamelle flag exists on diner, treat as all members
+    if (weekPlan[day]?.diner?.gamelle) {
+        const all = ['self', ...(currentProfile.household||[]).map(m => m.name)];
+        return all;
+    }
+    return [];
+}
+
+// Compute gamelle cooking info for a specific member
+// Returns { memberPS (diner scale), lunchPS, totalFactor (for this member) } or null
+function getGamelleInfoForMember(day, member) {
+    if (!hasGamelle(day, member)) return null;
+    const dayIdx = DAYS.indexOf(day);
+    if (dayIdx >= DAYS.length - 1) return null;
+
+    const nextDay = DAYS[dayIdx + 1];
+    const diner = getMealForMember(day, 'diner', member);
+    if (!diner) return null;
+
+    const dinerPS = diner.portionScale || 1;
+    const portionMult = getPortionMultiplier(member);
+
+    // Lunch portionScale: use the gamelle lunch override if exists, else compute from diner
+    const lunchOverride = weekPlan[nextDay]?._memberOverrides?.[member]?.dejeuner;
+    let lunchPS;
+    if (lunchOverride && lunchOverride.isGamelle) {
+        lunchPS = lunchOverride.portionScale || 1;
+    } else {
+        const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT.dejeuner;
+        lunchPS = Math.max(0.7, Math.min(2.0, Math.round((targetCal / (diner.macros.cal || 400)) * 100) / 100));
+    }
+
+    return { dinerPS, lunchPS, portionMult, dinerQty: portionMult * dinerPS, lunchQty: portionMult * lunchPS };
+}
+
+// Aggregate gamelle info for shopping (all members combined)
+function getGamelleInfo(day) {
+    const members = getGamelleMembers(day);
+    if (members.length === 0) return null;
+
+    const diner = weekPlan[day]?.diner;
+    if (!diner) return null;
+    const dinerPS = diner.portionScale || 1;
+
+    const household = currentProfile.household || [];
+    const sharedMeals = currentProfile.sharedMeals || { diner: true };
+    const totalPortions = 1 + household.reduce((s, m) => s + m.portion, 0);
+    const dinerPortions = (sharedMeals.diner && household.length > 0) ? totalPortions : 1;
+
+    // Sum up lunch portions only for members who have gamelle
+    let lunchQty = 0;
+    let lunchPS = dinerPS;
+    members.forEach(member => {
+        const info = getGamelleInfoForMember(day, member);
+        if (info) {
+            lunchQty += info.lunchQty;
+            lunchPS = info.lunchPS; // keep last for display
+        }
+    });
+
+    const dinerQty = dinerPortions * dinerPS;
+    return { dinerQty, lunchQty, totalFactor: dinerQty + lunchQty, lunchPS, dinerPS, dinerPortions, gamelleMembers: members };
+}
+
 function toggleGamelle(day) {
     const diner = weekPlan[day]?.diner;
     if (!diner) return;
-    diner.gamelle = !diner.gamelle;
-
-    // If enabling gamelle, copy diner recipe to next day's dejeuner
     const dayIdx = DAYS.indexOf(day);
-    if (diner.gamelle && dayIdx < DAYS.length - 1) {
-        const nextDay = DAYS[dayIdx + 1];
-        if (!weekPlan[nextDay]) weekPlan[nextDay] = {};
-        weekPlan[nextDay].dejeuner = { ...diner, gamelle: false, isGamelle: true };
-        // Recalculate portionScale for dejeuner target
+    if (dayIdx >= DAYS.length - 1) return;
+
+    // Initialize _gamelleMembers if needed (migrate from legacy)
+    if (!weekPlan[day]._gamelleMembers) {
+        weekPlan[day]._gamelleMembers = diner.gamelle ? ['self', ...(currentProfile.household||[]).map(m=>m.name)] : [];
+        delete diner.gamelle; // remove legacy flag
+    }
+
+    const gm = weekPlan[day]._gamelleMembers;
+    const idx = gm.indexOf(currentMember);
+    const nextDay = DAYS[dayIdx + 1];
+    if (!weekPlan[nextDay]) weekPlan[nextDay] = {};
+
+    if (idx === -1) {
+        // Enable gamelle for this member
+        gm.push(currentMember);
+        // Create gamelle lunch as member override
         const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT.dejeuner;
-        let scale = targetCal / (diner.macros.cal || 400);
-        weekPlan[nextDay].dejeuner.portionScale = Math.max(0.7, Math.min(2.0, Math.round(scale * 100) / 100));
-    } else if (!diner.gamelle && dayIdx < DAYS.length - 1) {
-        const nextDay = DAYS[dayIdx + 1];
-        if (weekPlan[nextDay]?.dejeuner?.isGamelle) {
-            // Restore a random dejeuner recipe
-            const pool = shuffle(getFilteredRecipes('dejeuner'));
-            if (pool.length) {
-                const r = pool[0];
-                const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT.dejeuner;
-                let scale = targetCal / (r.macros.cal || 400);
-                scale = Math.max(0.7, Math.min(2.0, Math.round(scale * 100) / 100));
-                weekPlan[nextDay].dejeuner = { ...r, portionScale: scale };
-            }
+        const memberDiner = getMealForMember(day, 'diner', currentMember);
+        let scale = targetCal / (memberDiner.macros.cal || 400);
+        scale = Math.max(0.7, Math.min(2.0, Math.round(scale * 100) / 100));
+        const gamelleLunch = { ...memberDiner, gamelle: false, isGamelle: true, portionScale: scale };
+
+        if (!weekPlan[nextDay]._memberOverrides) weekPlan[nextDay]._memberOverrides = {};
+        if (!weekPlan[nextDay]._memberOverrides[currentMember]) weekPlan[nextDay]._memberOverrides[currentMember] = {};
+        weekPlan[nextDay]._memberOverrides[currentMember].dejeuner = gamelleLunch;
+    } else {
+        // Disable gamelle for this member
+        gm.splice(idx, 1);
+        // Remove gamelle lunch override for this member
+        const ov = weekPlan[nextDay]?._memberOverrides?.[currentMember];
+        if (ov?.dejeuner?.isGamelle) {
+            delete ov.dejeuner;
+            // Cleanup empty objects
+            if (Object.keys(ov).length === 0) delete weekPlan[nextDay]._memberOverrides[currentMember];
+            if (Object.keys(weekPlan[nextDay]._memberOverrides).length === 0) delete weekPlan[nextDay]._memberOverrides;
         }
     }
+
+    // Update legacy gamelle flag for backward compat (shopping list, detail view)
+    diner.gamelle = gm.length > 0;
 
     savePlan(currentProfile.id, weekPlan);
     render();
@@ -1383,42 +1523,61 @@ function buildShoppingList() {
     const household = currentProfile.household || [];
     const sharedMeals = currentProfile.sharedMeals || { diner: true };
     const allMembers = ['self', ...household.map(m => m.name)];
-    const totalPortions = 1 + household.reduce((s,m) => s + m.portion, 0);
 
+    // Always count per-member to handle skips, overrides, and per-member gamelle
     DAYS.forEach(d => MEALS.forEach(mt => {
-        const baseRecipe = weekPlan[d]?.[mt];
-        if (!baseRecipe) return;
-        const hasOverrides = weekPlan[d]?._memberOverrides;
-        const isShared = sharedMeals[mt] && household.length > 0;
+        allMembers.forEach(member => {
+            // Skip if this member has skipped this meal
+            if (isMealSkipped(d, mt, member)) return;
 
-        if (!hasOverrides || !isShared) {
-            // No overrides or solo meal: use base recipe with original logic
-            const r = baseRecipe;
+            const r = getMealForMember(d, mt, member);
+            if (!r) return;
+            // Skip gamelle lunches — their ingredients are counted from the diner
             if (r.isGamelle) return;
+
             const ps = r.portionScale || 1;
-            const portions = isShared ? totalPortions : 1;
-            const gamelleMult = r.gamelle ? 2 : 1;
-            (r.ingredients||[]).forEach(i => {
-                const k = i.name; const q = i.qty * portions * ps * gamelleMult;
-                if (!items[k]) items[k] = {name:i.name, qty:0, unit:i.unit, cat:i.cat};
+            const isShared = sharedMeals[mt] && household.length > 0;
+
+            // For shared meals without per-member overrides, only count once (from 'self')
+            // to avoid double-counting. But if there are overrides, count per member.
+            const hasOverrideForMt = weekPlan[d]?._memberOverrides && Object.values(weekPlan[d]._memberOverrides).some(o => o[mt]);
+            if (isShared && !hasOverrideForMt && member !== 'self') return;
+
+            const portionMult = isShared && !hasOverrideForMt
+                ? (1 + household.reduce((s, m) => s + m.portion, 0))
+                : getPortionMultiplier(member);
+
+            // Gamelle: add lunch portions for this member if they have gamelle
+            let gamelleLunchMult = 0;
+            if (mt === 'diner' && hasGamelle(d, member)) {
+                const gi = getGamelleInfoForMember(d, member);
+                if (gi) gamelleLunchMult = gi.lunchQty / (portionMult * ps) || 0;
+            }
+            // For shared without overrides, sum gamelle lunch for all gamelle members
+            if (mt === 'diner' && isShared && !hasOverrideForMt && member === 'self') {
+                gamelleLunchMult = 0;
+                getGamelleMembers(d).forEach(gm => {
+                    if (!isMealSkipped(d, 'diner', gm)) {
+                        const gi = getGamelleInfoForMember(d, gm);
+                        if (gi) gamelleLunchMult += gi.lunchQty;
+                    }
+                });
+                // Normalize: gamelleLunchMult is already absolute, divide by base
+                const baseMult = portionMult * ps;
+                gamelleLunchMult = baseMult > 0 ? gamelleLunchMult / baseMult : 0;
+            }
+
+            const totalMult = portionMult * ps * (1 + gamelleLunchMult);
+
+            (r.ingredients || []).forEach(i => {
+                const k = i.name;
+                const q = i.qty * totalMult;
+                if (!items[k]) items[k] = { name: i.name, qty: 0, unit: i.unit, cat: i.cat };
                 items[k].qty += q;
             });
-        } else {
-            // Has overrides and shared meal: count per member
-            allMembers.forEach(member => {
-                const r = getMealForMember(d, mt, member);
-                if (!r || r.isGamelle) return;
-                const ps = r.portionScale || 1;
-                const portionMult = getPortionMultiplier(member);
-                const gamelleMult = r.gamelle ? 2 : 1;
-                (r.ingredients||[]).forEach(i => {
-                    const k = i.name; const q = i.qty * portionMult * ps * gamelleMult;
-                    if (!items[k]) items[k] = {name:i.name, qty:0, unit:i.unit, cat:i.cat};
-                    items[k].qty += q;
-                });
-            });
-        }
+        });
     }));
+
     Object.values(items).forEach(i => i.qty = Math.round(i.qty * 10) / 10);
     const grouped = {};
     Object.values(items).forEach(i => { if (!grouped[i.cat]) grouped[i.cat] = []; grouped[i.cat].push(i); });
