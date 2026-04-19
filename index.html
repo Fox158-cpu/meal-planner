@@ -997,9 +997,11 @@ function getFilteredRecipes(mealType) {
     });
 }
 
-function generateWeekPlan() {
+function generateWeekPlan(lockedMeals) {
+    const oldPlan = JSON.parse(JSON.stringify(weekPlan || {}));
     weekPlan = {};
     const targetCal = currentProfile?.targets?.cal || 2000;
+    const locked = lockedMeals || {};
 
     // Shuffle recipe pools per meal type
     const pools = {};
@@ -1010,6 +1012,12 @@ function generateWeekPlan() {
     DAYS.forEach(d => {
         weekPlan[d] = {};
         MEALS.forEach(mt => {
+            // If this meal type is locked, keep the old one
+            if (locked[mt] && oldPlan[d]?.[mt]) {
+                weekPlan[d][mt] = oldPlan[d][mt];
+                return;
+            }
+
             const pool = pools[mt];
             if (!pool.length) return;
             const recipe = pool[idx[mt] % pool.length];
@@ -1038,32 +1046,7 @@ function confirmRegen() {
         diner: document.getElementById('lockDin').checked
     };
 
-    // Save locked meals from current plan
-    const saved = {};
-    if (Object.values(locked).some(v => v)) {
-        DAYS.forEach(d => {
-            saved[d] = {};
-            MEALS.forEach(mt => {
-                if (locked[mt] && weekPlan[d]?.[mt]) {
-                    saved[d][mt] = weekPlan[d][mt];
-                }
-            });
-        });
-    }
-
-    // Generate new plan
-    generateWeekPlan();
-
-    // Restore locked meals
-    DAYS.forEach(d => {
-        MEALS.forEach(mt => {
-            if (locked[mt] && saved[d]?.[mt]) {
-                weekPlan[d][mt] = saved[d][mt];
-            }
-        });
-    });
-
-    if (currentProfile) savePlan(currentProfile.id, weekPlan);
+    generateWeekPlan(locked);
     closeModal('regenModal');
     render();
 }
