@@ -283,6 +283,10 @@
         .ingredient-row .ir-unit { width:60px; }
         .ingredient-row .ir-cat { flex:1; }
 
+        /* Gamelle button */
+        .gamelle-active { background:var(--accent) !important; color:#fff !important; border-color:var(--accent) !important; }
+        .gamelle-badge { display:inline-block; font-size:.6rem; background:var(--accent); color:#fff; padding:1px 6px; border-radius:4px; vertical-align:middle; margin-left:4px; }
+
         /* Dark mode toggle */
         .theme-toggle {
             width:40px; height:24px; border-radius:12px; border:none; cursor:pointer;
@@ -419,6 +423,17 @@
             </div>
         </div>
 
+        <div class="form-group" id="sharedMealsGroup" style="display:none;">
+            <label>Repas en commun</label>
+            <div class="form-hint">Coche les repas que tout le foyer partage. Les repas non coches = courses pour toi seul.</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                <span class="restriction-tag" data-sm="petit_dejeuner" onclick="toggleSharedMeal(this)">Petit-dejeuner</span>
+                <span class="restriction-tag" data-sm="dejeuner" onclick="toggleSharedMeal(this)">Dejeuner</span>
+                <span class="restriction-tag" data-sm="encas" onclick="toggleSharedMeal(this)">En-cas</span>
+                <span class="restriction-tag active" data-sm="diner" onclick="toggleSharedMeal(this)">Diner</span>
+            </div>
+        </div>
+
         <div class="form-group">
             <label>Mon Drive</label>
             <select id="pDriveType" onchange="updateDriveFields()">
@@ -538,6 +553,32 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Regenerate Modal -->
+<div class="modal-overlay" id="regenModal">
+    <div class="modal" style="max-width:420px;">
+        <h3>&#8635; Regenerer le planning</h3>
+        <p style="font-size:.85rem;color:var(--text-mid);margin-bottom:14px;">Coche les repas a <strong>figer</strong> (ils ne changeront pas). Les autres seront regeneres avec de nouvelles recettes.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;transition:all .15s;" onchange="this.style.borderColor=this.querySelector('input').checked?'var(--accent)':'var(--border)';this.style.background=this.querySelector('input').checked?'var(--fat-light)':'transparent'">
+                <input type="checkbox" id="lockPdj" style="width:18px;height:18px;accent-color:var(--accent);"> <span style="font-weight:600;font-size:.88rem;">&#128274; Petit-dejeuner</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;transition:all .15s;" onchange="this.style.borderColor=this.querySelector('input').checked?'var(--accent)':'var(--border)';this.style.background=this.querySelector('input').checked?'var(--fat-light)':'transparent'">
+                <input type="checkbox" id="lockDej" style="width:18px;height:18px;accent-color:var(--accent);"> <span style="font-weight:600;font-size:.88rem;">&#128274; Dejeuner</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;transition:all .15s;" onchange="this.style.borderColor=this.querySelector('input').checked?'var(--accent)':'var(--border)';this.style.background=this.querySelector('input').checked?'var(--fat-light)':'transparent'">
+                <input type="checkbox" id="lockEnc" style="width:18px;height:18px;accent-color:var(--accent);"> <span style="font-weight:600;font-size:.88rem;">&#128274; En-cas</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;transition:all .15s;" onchange="this.style.borderColor=this.querySelector('input').checked?'var(--accent)':'var(--border)';this.style.background=this.querySelector('input').checked?'var(--fat-light)':'transparent'">
+                <input type="checkbox" id="lockDin" style="width:18px;height:18px;accent-color:var(--accent);"> <span style="font-weight:600;font-size:.88rem;">&#128274; Diner</span>
+            </label>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" onclick="confirmRegen()">&#8635; Regenerer</button>
+            <button class="btn btn-sm" style="padding:9px 18px;" onclick="closeModal('regenModal')">Annuler</button>
         </div>
     </div>
 </div>
@@ -797,20 +838,32 @@ function openProfileEditor(id) {
         t.classList.toggle('active', (p?.restrictions || []).includes(t.dataset.r));
     });
 
+    // Shared meals — only show if household has members
+    const smGroup = document.getElementById('sharedMealsGroup');
+    smGroup.style.display = tempHousehold.length > 0 ? 'block' : 'none';
+    const sm = p?.sharedMeals || { diner: true };
+    document.querySelectorAll('[data-sm]').forEach(el => {
+        el.classList.toggle('active', !!sm[el.dataset.sm]);
+    });
+
     updateDriveFields();
     document.getElementById('profileModal').classList.add('active');
 }
+
+function toggleSharedMeal(el) { el.classList.toggle('active'); }
 
 function renderHouseholdEditor() {
     const el = document.getElementById('householdEditor');
     el.innerHTML = tempHousehold.map((m, i) => `
         <div style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
-            <input type="text" value="${m.name}" placeholder="Nom" style="flex:1; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;" onchange="tempHousehold[${i}].name=this.value">
-            <input type="number" value="${m.portion}" step="0.05" min="0.1" max="3" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;" onchange="tempHousehold[${i}].portion=parseFloat(this.value)" title="Multiplicateur portion">
+            <input type="text" value="${m.name}" placeholder="Nom" style="flex:1; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;background:var(--input-bg);color:var(--text);" onchange="tempHousehold[${i}].name=this.value">
+            <input type="number" value="${m.portion}" step="0.05" min="0.1" max="3" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:.85rem;background:var(--input-bg);color:var(--text);" onchange="tempHousehold[${i}].portion=parseFloat(this.value)" title="Multiplicateur portion">
             <span style="font-size:.7rem; color:var(--text-light);">x</span>
             <button class="btn-sm" onclick="tempHousehold.splice(${i},1); renderHouseholdEditor();">&#10005;</button>
         </div>
     `).join('') || '<p style="font-size:.8rem; color:var(--text-light);">Juste toi pour le moment.</p>';
+    // Show/hide shared meals setting
+    document.getElementById('sharedMealsGroup').style.display = tempHousehold.length > 0 ? 'block' : 'none';
 }
 
 function addHouseholdMember() {
@@ -863,6 +916,11 @@ function saveProfile() {
         },
         household: tempHousehold.filter(m => m.name.trim()),
         restrictions,
+        sharedMeals: (() => {
+            const sm = {};
+            document.querySelectorAll('[data-sm].active').forEach(el => { sm[el.dataset.sm] = true; });
+            return sm;
+        })(),
         driveType: document.getElementById('pDriveType').value,
         driveLocation: document.getElementById('pDriveLocation').value.trim(),
         driveCustomUrl: document.getElementById('pDriveCustomUrl').value.trim()
@@ -970,7 +1028,45 @@ function generateWeekPlan() {
     if (currentProfile) savePlan(currentProfile.id, weekPlan);
 }
 
-function regenerateAll() { generateWeekPlan(); render(); }
+function regenerateAll() { document.getElementById('regenModal').classList.add('active'); }
+
+function confirmRegen() {
+    const locked = {
+        petit_dejeuner: document.getElementById('lockPdj').checked,
+        dejeuner: document.getElementById('lockDej').checked,
+        encas: document.getElementById('lockEnc').checked,
+        diner: document.getElementById('lockDin').checked
+    };
+
+    // Save locked meals from current plan
+    const saved = {};
+    if (Object.values(locked).some(v => v)) {
+        DAYS.forEach(d => {
+            saved[d] = {};
+            MEALS.forEach(mt => {
+                if (locked[mt] && weekPlan[d]?.[mt]) {
+                    saved[d][mt] = weekPlan[d][mt];
+                }
+            });
+        });
+    }
+
+    // Generate new plan
+    generateWeekPlan();
+
+    // Restore locked meals
+    DAYS.forEach(d => {
+        MEALS.forEach(mt => {
+            if (locked[mt] && saved[d]?.[mt]) {
+                weekPlan[d][mt] = saved[d][mt];
+            }
+        });
+    });
+
+    if (currentProfile) savePlan(currentProfile.id, weekPlan);
+    closeModal('regenModal');
+    render();
+}
 
 // ========== RENDERING ==========
 
@@ -1022,10 +1118,12 @@ function renderWeek() {
             const m = getMacros(r, currentMember);
             const ps = r.portionScale || 1;
             const psLabel = ps !== 1 ? ` <span style="font-size:.65rem;color:var(--text-light);font-weight:400;">(x${ps})</span>` : '';
+            const isShared = (currentProfile.sharedMeals || {diner:true})[mt] && (currentProfile.household||[]).length > 0;
+            const sharedIcon = (currentProfile.household||[]).length > 0 ? (isShared ? ' <span style="font-size:.6rem;opacity:.7;" title="Repas commun">&#128101;</span>' : ' <span style="font-size:.6rem;opacity:.5;" title="Repas solo">&#128100;</span>') : '';
             mealsHtml += `
                 <div class="meal-slot">
-                    <div class="meal-type">${MEAL_LABELS[mt]}${psLabel}</div>
-                    <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}${r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">perso</span>' : ''}</div>
+                    <div class="meal-type">${MEAL_LABELS[mt]}${sharedIcon}${psLabel}</div>
+                    <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}${r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">perso</span>' : ''}${r.isGamelle ? ' <span class="gamelle-badge">gamelle</span>' : ''}</div>
                     <div class="meal-macros">
                         <span><span class="dot dot-cal"></span>${m.cal} kcal</span>
                         <span><span class="dot dot-prot"></span>${m.prot}g P</span>
@@ -1035,6 +1133,7 @@ function renderWeek() {
                     <div class="meal-actions">
                         <button class="btn-sm" onclick="openSwap('${day}','${mt}')">&#128260; Changer</button>
                         <button class="btn-sm" onclick="showDetail('${day}','${mt}')">&#128196; Details</button>
+                        ${mt === 'diner' ? `<button class="btn-sm${r.gamelle ? ' gamelle-active' : ''}" onclick="toggleGamelle('${day}')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle${r.gamelle ? ' ✓' : ''}</button>` : ''}
                     </div>
                 </div>`;
         });
@@ -1050,7 +1149,10 @@ function renderWeek() {
 function showDetail(day, mt) {
     const r = weekPlan[day][mt];
     const ms = getMacros(r, 'self');
-    const totalPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion, 0);
+    const fullPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion, 0);
+    const isShared = (currentProfile.sharedMeals || {diner:true})[mt];
+    const totalPortions = isShared ? fullPortions : 1;
+    const gamelleMult = r.gamelle ? 2 : 1;
 
     let membersRows = `<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-weight:600">Calories</td><td style="text-align:center">${ms.cal}</td>`;
     (currentProfile.household||[]).forEach(m => { const mx=getMacros(r,m.name); membersRows+=`<td style="text-align:center">${mx.cal}</td>`; });
@@ -1075,8 +1177,8 @@ function showDetail(day, mt) {
             ${membersRows}
         </table>
         ${r.portionScale && r.portionScale !== 1 ? `<div style="background:var(--success-light);border:1px solid var(--primary);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem;color:var(--primary);">&#9878; Portion ajustee x${r.portionScale} pour atteindre ton objectif calorique</div>` : ''}
-        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${Math.round(totalPortions*10)/10} pers. x${r.portionScale||1})</h4>
-        <ul style="padding-left:18px;margin-bottom:14px;">${(r.ingredients||[]).map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*(r.portionScale||1)*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
+        <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Ingredients (${isShared ? Math.round(totalPortions*10)/10+' pers.' : 'solo'} x${r.portionScale||1}${r.gamelle ? ' x2 gamelle' : ''})</h4>
+        <ul style="padding-left:18px;margin-bottom:14px;">${(r.ingredients||[]).map(i=>`<li style="margin-bottom:3px;font-size:.85rem;">${Math.round(i.qty*totalPortions*(r.portionScale||1)*gamelleMult*10)/10} ${i.unit} — ${i.name}</li>`).join('')}</ul>
         <h4 style="color:var(--primary);margin-bottom:6px;font-size:.9rem;">Preparation</h4>
         <ol style="padding-left:18px;">${r.steps.map(s=>`<li style="margin-bottom:4px;font-size:.85rem;">${s}</li>`).join('')}</ol>
         <div style="text-align:right;margin-top:14px;"><button class="btn btn-primary" onclick="closeModal('detailModal')">Fermer</button></div>
@@ -1126,6 +1228,42 @@ function confirmSwap() {
     closeModal('swapModal');
 }
 
+// ========== GAMELLE ==========
+
+function toggleGamelle(day) {
+    const diner = weekPlan[day]?.diner;
+    if (!diner) return;
+    diner.gamelle = !diner.gamelle;
+
+    // If enabling gamelle, copy diner recipe to next day's dejeuner
+    const dayIdx = DAYS.indexOf(day);
+    if (diner.gamelle && dayIdx < DAYS.length - 1) {
+        const nextDay = DAYS[dayIdx + 1];
+        if (!weekPlan[nextDay]) weekPlan[nextDay] = {};
+        weekPlan[nextDay].dejeuner = { ...diner, gamelle: false, isGamelle: true };
+        // Recalculate portionScale for dejeuner target
+        const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT.dejeuner;
+        let scale = targetCal / (diner.macros.cal || 400);
+        weekPlan[nextDay].dejeuner.portionScale = Math.max(0.7, Math.min(2.0, Math.round(scale * 100) / 100));
+    } else if (!diner.gamelle && dayIdx < DAYS.length - 1) {
+        const nextDay = DAYS[dayIdx + 1];
+        if (weekPlan[nextDay]?.dejeuner?.isGamelle) {
+            // Restore a random dejeuner recipe
+            const pool = shuffle(getFilteredRecipes('dejeuner'));
+            if (pool.length) {
+                const r = pool[0];
+                const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT.dejeuner;
+                let scale = targetCal / (r.macros.cal || 400);
+                scale = Math.max(0.7, Math.min(2.0, Math.round(scale * 100) / 100));
+                weekPlan[nextDay].dejeuner = { ...r, portionScale: scale };
+            }
+        }
+    }
+
+    savePlan(currentProfile.id, weekPlan);
+    render();
+}
+
 // ========== TABS ==========
 
 function switchTab(tab) {
@@ -1144,9 +1282,16 @@ function buildShoppingList() {
     const totalPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion,0);
     DAYS.forEach(d => MEALS.forEach(mt => {
         const r = weekPlan[d]?.[mt]; if(!r) return;
+        // Skip gamelle dejeuners — ingredients already counted from diner
+        if (r.isGamelle) return;
         const ps = r.portionScale || 1;
+        // Determine portions: commun meals use full household, solo = 1
+        const sharedMeals = currentProfile.sharedMeals || { diner: true };
+        const portions = sharedMeals[mt] ? totalPortions : 1;
+        // Gamelle: double the portions (cooking for tonight + tomorrow lunch)
+        const gamelleMult = r.gamelle ? 2 : 1;
         (r.ingredients||[]).forEach(i => {
-            const k=i.name; const q=i.qty*totalPortions*ps;
+            const k=i.name; const q=i.qty*portions*ps*gamelleMult;
             if(!items[k]) items[k]={name:i.name,qty:0,unit:i.unit,cat:i.cat};
             items[k].qty+=q;
         });
