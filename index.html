@@ -1179,32 +1179,35 @@ function renderWeek() {
             const skipped = isMealSkipped(day, mt, currentMember);
             const m = skipped ? {cal:0,prot:0,carbs:0,fat:0} : getMacros(r, currentMember);
             const ps = r.portionScale || 1;
-            const psLabel = ps !== 1 ? ` <span style="font-size:.65rem;color:var(--text-light);font-weight:400;">(x${ps})</span>` : '';
+            const psLabel = ps !== 1 ? ' <span style="font-size:.65rem;color:var(--text-light);font-weight:400;">(x' + ps + ')</span>' : '';
             const isShared = (currentProfile.sharedMeals || {diner:true})[mt] && (currentProfile.household||[]).length > 0;
             const sharedIcon = (currentProfile.household||[]).length > 0 ? (isShared ? ' <span style="font-size:.6rem;opacity:.7;" title="Repas commun">&#128101;</span>' : ' <span style="font-size:.6rem;opacity:.5;" title="Repas solo">&#128100;</span>') : '';
             const memberGamelle = mt === 'diner' && hasGamelle(day, currentMember);
             const dayIdx = DAYS.indexOf(day);
             const canGamelle = mt === 'diner' && dayIdx < DAYS.length - 1;
-            mealsHtml += `
-                <div class="meal-slot${skipped ? ' meal-skipped' : ''}">
-                    <div class="meal-type">${MEAL_LABELS[mt]}${sharedIcon}${psLabel}${skipped ? ' <span style="font-size:.6rem;color:var(--text-light);">— hors programme</span>' : ''}</div>
-                    <div class="meal-name" onclick="showDetail('${day}','${mt}')">${r.name}${r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">perso</span>' : ''}${r.isGamelle ? ' <span class="gamelle-badge">gamelle</span>' : ''}</div>
-                    <div class="meal-macros">
-                        <span><span class="dot dot-cal"></span>${m.cal} kcal</span>
-                        <span><span class="dot dot-prot"></span>${m.prot}g P</span>
-                        <span><span class="dot dot-carbs"></span>${m.carbs}g G</span>
-                        <span><span class="dot dot-fat"></span>${m.fat}g L</span>
-                    </div>
-                    <div class="meal-actions">
-                        <button class="btn-sm btn-skip${skipped ? ' skip-active' : ''}" onclick="toggleSkipMeal('${day}','${mt}')" title="${skipped ? 'Remettre au programme' : 'Retirer du programme (resto, absent...)'}">${skipped ? '✅ Remettre' : '🚫 Passer'}</button>
-                        ${!skipped ? `
-                        <button class="btn-sm" onclick="openSwap('${day}','${mt}')">&#128260; Changer</button>
-                        <button class="btn-sm" onclick="openDuplicate('${day}','${mt}')" title="Dupliquer sur d'autres jours">&#128203; Dupliquer</button>
-                        <button class="btn-sm" onclick="showDetail('${day}','${mt}')">&#128196; Details</button>
-                        ${canGamelle ? `<button class="btn-sm${memberGamelle ? ' gamelle-active' : ''}" onclick="toggleGamelle('${day}')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle${memberGamelle ? ' ✓' : ''}</button>` : ''}
-                        ` : ''}
-                    </div>
-                </div>`;
+
+            // Build action buttons
+            let actions = '<button class="btn-sm btn-skip' + (skipped ? ' skip-active' : '') + '" onclick="toggleSkipMeal(\'' + day + '\',\'' + mt + '\')" title="' + (skipped ? 'Remettre au programme' : 'Retirer du programme (resto, absent...)') + '">' + (skipped ? '✅ Remettre' : '🚫 Passer') + '</button>';
+            if (!skipped) {
+                actions += ' <button class="btn-sm" onclick="openSwap(\'' + day + '\',\'' + mt + '\')">&#128260; Changer</button>';
+                actions += ' <button class="btn-sm" onclick="openDuplicate(\'' + day + '\',\'' + mt + '\')" title="Dupliquer sur d\'autres jours">&#128203; Dupliquer</button>';
+                actions += ' <button class="btn-sm" onclick="showDetail(\'' + day + '\',\'' + mt + '\')">&#128196; Details</button>';
+                if (canGamelle) {
+                    actions += ' <button class="btn-sm' + (memberGamelle ? ' gamelle-active' : '') + '" onclick="toggleGamelle(\'' + day + '\')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle' + (memberGamelle ? ' ✓' : '') + '</button>';
+                }
+            }
+
+            mealsHtml += '<div class="meal-slot' + (skipped ? ' meal-skipped' : '') + '">'
+                + '<div class="meal-type">' + MEAL_LABELS[mt] + sharedIcon + psLabel + (skipped ? ' <span style="font-size:.6rem;color:var(--text-light);">— hors programme</span>' : '') + '</div>'
+                + '<div class="meal-name" onclick="showDetail(\'' + day + '\',\'' + mt + '\')">' + r.name + (r.isCustom ? ' <span style="font-size:.6rem;background:var(--accent);color:#fff;padding:1px 5px;border-radius:4px;vertical-align:middle;">perso</span>' : '') + (r.isGamelle ? ' <span class="gamelle-badge">gamelle</span>' : '') + '</div>'
+                + '<div class="meal-macros">'
+                + '<span><span class="dot dot-cal"></span>' + m.cal + ' kcal</span>'
+                + '<span><span class="dot dot-prot"></span>' + m.prot + 'g P</span>'
+                + '<span><span class="dot dot-carbs"></span>' + m.carbs + 'g G</span>'
+                + '<span><span class="dot dot-fat"></span>' + m.fat + 'g L</span>'
+                + '</div>'
+                + '<div class="meal-actions">' + actions + '</div>'
+                + '</div>';
         });
         const card = document.createElement('div');
         card.className = 'day-card';
