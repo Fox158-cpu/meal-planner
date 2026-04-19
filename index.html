@@ -1182,17 +1182,17 @@ function renderWeek() {
             const psLabel = ps !== 1 ? ' <span style="font-size:.65rem;color:var(--text-light);font-weight:400;">(x' + ps + ')</span>' : '';
             const isShared = (currentProfile.sharedMeals || {diner:true})[mt] && (currentProfile.household||[]).length > 0;
             const sharedIcon = (currentProfile.household||[]).length > 0 ? (isShared ? ' <span style="font-size:.6rem;opacity:.7;" title="Repas commun">&#128101;</span>' : ' <span style="font-size:.6rem;opacity:.5;" title="Repas solo">&#128100;</span>') : '';
-            const memberGamelle = mt === 'diner' && hasGamelle(day, currentMember);
-            const dayIdx = DAYS.indexOf(day);
-            const canGamelle = mt === 'diner' && dayIdx < DAYS.length - 1;
+            var memberGamelle = false;
+            var isDiner = (mt === 'diner');
+            if (isDiner) { try { memberGamelle = hasGamelle(day, currentMember); } catch(e) { memberGamelle = false; } }
 
             // Build action buttons
-            let actions = '<button class="btn-sm btn-skip' + (skipped ? ' skip-active' : '') + '" onclick="toggleSkipMeal(\'' + day + '\',\'' + mt + '\')" title="' + (skipped ? 'Remettre au programme' : 'Retirer du programme (resto, absent...)') + '">' + (skipped ? '✅ Remettre' : '🚫 Passer') + '</button>';
+            var actions = '<button class="btn-sm btn-skip' + (skipped ? ' skip-active' : '') + '" onclick="toggleSkipMeal(\'' + day + '\',\'' + mt + '\')" title="' + (skipped ? 'Remettre au programme' : 'Retirer du programme (resto, absent...)') + '">' + (skipped ? '✅ Remettre' : '🚫 Passer') + '</button>';
             if (!skipped) {
                 actions += ' <button class="btn-sm" onclick="openSwap(\'' + day + '\',\'' + mt + '\')">&#128260; Changer</button>';
                 actions += ' <button class="btn-sm" onclick="openDuplicate(\'' + day + '\',\'' + mt + '\')" title="Dupliquer sur d\'autres jours">&#128203; Dupliquer</button>';
                 actions += ' <button class="btn-sm" onclick="showDetail(\'' + day + '\',\'' + mt + '\')">&#128196; Details</button>';
-                if (canGamelle) {
+                if (isDiner) {
                     actions += ' <button class="btn-sm' + (memberGamelle ? ' gamelle-active' : '') + '" onclick="toggleGamelle(\'' + day + '\')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle' + (memberGamelle ? ' ✓' : '') + '</button>';
                 }
             }
