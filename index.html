@@ -485,6 +485,20 @@
 <!-- Detail Modal -->
 <div class="modal-overlay" id="detailModal"><div class="modal" id="detailContent"></div></div>
 
+<!-- Duplicate Modal -->
+<div class="modal-overlay" id="duplicateModal">
+    <div class="modal" style="max-width:420px;">
+        <h3 style="margin-bottom:4px;">📋 Dupliquer la recette</h3>
+        <p id="duplicateRecipeName" style="color:var(--text-light);font-size:.85rem;margin-bottom:14px;"></p>
+        <p style="font-size:.85rem;margin-bottom:10px;">Appliquer ce repas sur :</p>
+        <div id="duplicateDays" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="btn btn-sm" style="padding:9px 18px;" onclick="closeModal('duplicateModal')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmDuplicate()">Dupliquer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Custom Recipe Modal -->
 <div class="modal-overlay" id="customRecipeModal">
     <div class="modal" style="max-width:650px;">
@@ -1151,6 +1165,7 @@ function renderWeek() {
                     </div>
                     <div class="meal-actions">
                         <button class="btn-sm" onclick="openSwap('${day}','${mt}')">&#128260; Changer</button>
+                        <button class="btn-sm" onclick="openDuplicate('${day}','${mt}')" title="Dupliquer sur d'autres jours">&#128203; Dupliquer</button>
                         <button class="btn-sm" onclick="showDetail('${day}','${mt}')">&#128196; Details</button>
                         ${mt === 'diner' ? `<button class="btn-sm${r.gamelle ? ' gamelle-active' : ''}" onclick="toggleGamelle('${day}')" title="Preparer une gamelle pour demain midi">&#127859; Gamelle${r.gamelle ? ' ✓' : ''}</button>` : ''}
                     </div>
@@ -1262,6 +1277,56 @@ function confirmSwap() {
         render();
     }
     closeModal('swapModal');
+}
+
+// ========== DUPLICATE ==========
+
+let duplicateContext = null;
+
+function openDuplicate(day, mt) {
+    const r = getMealForMember(day, mt, currentMember);
+    if (!r) return;
+    duplicateContext = { day, mt, recipe: r };
+    document.getElementById('duplicateRecipeName').textContent = `${MEAL_LABELS[mt]} : ${r.name}`;
+    const container = document.getElementById('duplicateDays');
+    container.innerHTML = DAYS.filter(d => d !== day).map(d => `
+        <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-xs);cursor:pointer;font-size:.88rem;transition:all .15s;flex:1 1 auto;min-width:120px;">
+            <input type="checkbox" value="${d}" style="accent-color:var(--primary);width:16px;height:16px;">
+            ${d}
+        </label>
+    `).join('');
+    document.getElementById('duplicateModal').classList.add('active');
+}
+
+function confirmDuplicate() {
+    if (!duplicateContext) return;
+    const { mt, recipe } = duplicateContext;
+    const checks = document.querySelectorAll('#duplicateDays input[type=checkbox]:checked');
+    if (checks.length === 0) { closeModal('duplicateModal'); return; }
+
+    const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT[mt];
+    let scale = targetCal / (recipe.macros.cal || 400);
+    scale = Math.max(0.7, Math.min(2.0, Math.round(scale * 100) / 100));
+    const dupRecipe = { ...recipe, portionScale: scale };
+
+    const hasHousehold = (currentProfile.household || []).length > 0;
+
+    checks.forEach(cb => {
+        const targetDay = cb.value;
+        if (!weekPlan[targetDay]) weekPlan[targetDay] = {};
+        if (hasHousehold) {
+            // Per-member override (same as swap logic)
+            if (!weekPlan[targetDay]._memberOverrides) weekPlan[targetDay]._memberOverrides = {};
+            if (!weekPlan[targetDay]._memberOverrides[currentMember]) weekPlan[targetDay]._memberOverrides[currentMember] = {};
+            weekPlan[targetDay]._memberOverrides[currentMember][mt] = { ...dupRecipe };
+        } else {
+            weekPlan[targetDay][mt] = { ...dupRecipe };
+        }
+    });
+
+    savePlan(currentProfile.id, weekPlan);
+    render();
+    closeModal('duplicateModal');
 }
 
 // ========== GAMELLE ==========
