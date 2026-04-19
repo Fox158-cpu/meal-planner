@@ -250,6 +250,12 @@
         .profile-card .info { flex:1; text-align:left; }
         .profile-card .info .name { font-weight:700; font-size:.95rem; }
         .profile-card .info .details { font-size:.78rem; color:var(--text-light); font-weight:500; }
+        .btn-delete-profile {
+            background:none; border:none; cursor:pointer; font-size:1.1rem;
+            opacity:.4; transition:all .2s; padding:6px 8px; border-radius:var(--radius-xs);
+            flex-shrink:0;
+        }
+        .btn-delete-profile:hover { opacity:1; background:rgba(239,68,68,.12); }
 
         /* Drive config */
         .drive-config-card { background:var(--border-light); border-radius:var(--radius-xs); padding:12px; margin-bottom:12px; }
@@ -772,6 +778,7 @@ function renderProfileList() {
                 <div class="name">${p.name}</div>
                 <div class="details">${p.targets.cal} kcal | ${p.targets.prot}g P | ${p.driveType ? DRIVE_CONFIGS[p.driveType]?.name : 'Pas de Drive'}</div>
             </div>
+            <button class="btn-delete-profile" onclick="event.stopPropagation(); deleteProfileFromList('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Supprimer ce profil">🗑️</button>
         </div>
     `).join('');
 }
@@ -945,6 +952,15 @@ function deleteProfile() {
     localStorage.removeItem(PLAN_PREFIX + editingProfileId);
     closeModal('profileModal');
     showWelcome();
+}
+
+function deleteProfileFromList(id, name) {
+    if (!confirm(`Supprimer le profil « ${name} » et toutes ses données ?`)) return;
+    profiles = profiles.filter(p => p.id !== id);
+    saveProfiles(profiles);
+    localStorage.removeItem(PLAN_PREFIX + id);
+    if (currentProfile && currentProfile.id === id) currentProfile = null;
+    renderProfileList();
 }
 
 // ========== MEAL PLANNING ==========
