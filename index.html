@@ -971,6 +971,15 @@ function getPortionMultiplier(member) {
     return m ? m.portion : 1;
 }
 
+// Returns the recipe for a specific member (checks per-member overrides first)
+function getMealForMember(day, mt, member) {
+    const dayPlan = weekPlan[day];
+    if (!dayPlan) return null;
+    const override = dayPlan._memberOverrides?.[member]?.[mt];
+    if (override) return override;
+    return dayPlan[mt] || null;
+}
+
 function getMacros(recipe, member) {
     const mult = getPortionMultiplier(member);
     const ps = recipe.portionScale || 1;
@@ -981,8 +990,9 @@ function getMacros(recipe, member) {
 function getDayMacros(day, member) {
     let t = {cal:0,prot:0,carbs:0,fat:0,sodium:0};
     MEALS.forEach(mt => {
-        if (weekPlan[day]?.[mt]) {
-            const m = getMacros(weekPlan[day][mt], member);
+        const r = getMealForMember(day, mt, member);
+        if (r) {
+            const m = getMacros(r, member);
             t.cal+=m.cal; t.prot+=m.prot; t.carbs+=m.carbs; t.fat+=m.fat; t.sodium+=m.sodium;
         }
     });
@@ -1028,9 +1038,19 @@ function generateWeekPlan(lockedMeals) {
     DAYS.forEach(d => {
         weekPlan[d] = {};
         MEALS.forEach(mt => {
-            // If this meal type is locked, keep the old one
+            // If this meal type is locked, keep the old one (including member overrides)
             if (locked[mt] && oldPlan[d]?.[mt]) {
                 weekPlan[d][mt] = oldPlan[d][mt];
+                // Preserve member overrides for locked meal types
+                if (oldPlan[d]._memberOverrides) {
+                    if (!weekPlan[d]._memberOverrides) weekPlan[d]._memberOverrides = {};
+                    Object.entries(oldPlan[d]._memberOverrides).forEach(([member, meals]) => {
+                        if (meals[mt]) {
+                            if (!weekPlan[d]._memberOverrides[member]) weekPlan[d]._memberOverrides[member] = {};
+                            weekPlan[d]._memberOverrides[member][mt] = meals[mt];
+                        }
+                    });
+                }
                 return;
             }
 
@@ -1112,7 +1132,7 @@ function renderWeek() {
         const dm = getDayMacros(day, currentMember);
         let mealsHtml = '';
         MEALS.forEach(mt => {
-            const r = weekPlan[day]?.[mt];
+            const r = getMealForMember(day, mt, currentMember);
             if (!r) return;
             const m = getMacros(r, currentMember);
             const ps = r.portionScale || 1;
@@ -1146,21 +1166,22 @@ function renderWeek() {
 // ========== DETAIL ==========
 
 function showDetail(day, mt) {
-    const r = weekPlan[day][mt];
-    const ms = getMacros(r, 'self');
+    const r = getMealForMember(day, mt, currentMember);
+    const selfRecipe = getMealForMember(day, mt, 'self');
+    const ms = getMacros(selfRecipe, 'self');
     const fullPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion, 0);
     const isShared = (currentProfile.sharedMeals || {diner:true})[mt];
     const totalPortions = isShared ? fullPortions : 1;
     const gamelleMult = r.gamelle ? 2 : 1;
 
     let membersRows = `<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-weight:600">Calories</td><td style="text-align:center">${ms.cal}</td>`;
-    (currentProfile.household||[]).forEach(m => { const mx=getMacros(r,m.name); membersRows+=`<td style="text-align:center">${mx.cal}</td>`; });
+    (currentProfile.household||[]).forEach(m => { const mr=getMealForMember(day,mt,m.name); const mx=getMacros(mr||r,m.name); membersRows+=`<td style="text-align:center">${mx.cal}${mr && mr.id!==r.id?' *':''}</td>`; });
     membersRows += '</tr>';
     ['prot','carbs','fat','sodium'].forEach(k => {
         const labels = {prot:'Proteines',carbs:'Glucides',fat:'Lipides',sodium:'Sodium'};
         const unit = k==='sodium'?'mg':'g';
         membersRows += `<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0;font-weight:600">${labels[k]}</td><td style="text-align:center">${ms[k]}${unit}</td>`;
-        (currentProfile.household||[]).forEach(m => { const mx=getMacros(r,m.name); membersRows+=`<td style="text-align:center">${mx[k]}${unit}</td>`; });
+        (currentProfile.household||[]).forEach(m => { const mr=getMealForMember(day,mt,m.name); const mx=getMacros(mr||r,m.name); membersRows+=`<td style="text-align:center">${mx[k]}${unit}</td>`; });
         membersRows += '</tr>';
     });
 
@@ -1189,7 +1210,7 @@ function showDetail(day, mt) {
 
 function openSwap(day, mt) {
     swapContext = {day, mt};
-    const current = weekPlan[day][mt];
+    const current = getMealForMember(day, mt, currentMember);
     const all = getFilteredRecipes(mt).filter(r=>r.id!==current.id);
     // Custom recipes always shown first
     const customs = all.filter(r => r.isCustom);
@@ -1220,7 +1241,23 @@ function confirmSwap() {
         const targetCal = (currentProfile?.targets?.cal || 2000) * MEAL_CAL_SPLIT[swapContext.mt];
         let scale = targetCal / (r.macros.cal || 400);
         scale = Math.max(0.7, Math.min(2.0, Math.round(scale*100)/100));
-        weekPlan[swapContext.day][swapContext.mt] = { ...r, portionScale: scale };
+        const newRecipe = { ...r, portionScale: scale };
+        const day = swapContext.day;
+        const mt = swapContext.mt;
+        // If viewing a specific member, store as a per-member override
+        if (currentMember !== 'self' || ((currentProfile.household||[]).length > 0 && currentMember === 'self')) {
+            // If there are household members, swap is per-member
+            if ((currentProfile.household||[]).length > 0) {
+                if (!weekPlan[day]._memberOverrides) weekPlan[day]._memberOverrides = {};
+                if (!weekPlan[day]._memberOverrides[currentMember]) weekPlan[day]._memberOverrides[currentMember] = {};
+                weekPlan[day]._memberOverrides[currentMember][mt] = newRecipe;
+            } else {
+                // Solo profile, just replace directly
+                weekPlan[day][mt] = newRecipe;
+            }
+        } else {
+            weekPlan[day][mt] = newRecipe;
+        }
         savePlan(currentProfile.id, weekPlan);
         render();
     }
@@ -1278,26 +1315,48 @@ function switchTab(tab) {
 
 function buildShoppingList() {
     const items = {};
-    const totalPortions = 1 + (currentProfile.household||[]).reduce((s,m)=>s+m.portion,0);
+    const household = currentProfile.household || [];
+    const sharedMeals = currentProfile.sharedMeals || { diner: true };
+    const allMembers = ['self', ...household.map(m => m.name)];
+    const totalPortions = 1 + household.reduce((s,m) => s + m.portion, 0);
+
     DAYS.forEach(d => MEALS.forEach(mt => {
-        const r = weekPlan[d]?.[mt]; if(!r) return;
-        // Skip gamelle dejeuners — ingredients already counted from diner
-        if (r.isGamelle) return;
-        const ps = r.portionScale || 1;
-        // Determine portions: commun meals use full household, solo = 1
-        const sharedMeals = currentProfile.sharedMeals || { diner: true };
-        const portions = sharedMeals[mt] ? totalPortions : 1;
-        // Gamelle: double the portions (cooking for tonight + tomorrow lunch)
-        const gamelleMult = r.gamelle ? 2 : 1;
-        (r.ingredients||[]).forEach(i => {
-            const k=i.name; const q=i.qty*portions*ps*gamelleMult;
-            if(!items[k]) items[k]={name:i.name,qty:0,unit:i.unit,cat:i.cat};
-            items[k].qty+=q;
-        });
+        const baseRecipe = weekPlan[d]?.[mt];
+        if (!baseRecipe) return;
+        const hasOverrides = weekPlan[d]?._memberOverrides;
+        const isShared = sharedMeals[mt] && household.length > 0;
+
+        if (!hasOverrides || !isShared) {
+            // No overrides or solo meal: use base recipe with original logic
+            const r = baseRecipe;
+            if (r.isGamelle) return;
+            const ps = r.portionScale || 1;
+            const portions = isShared ? totalPortions : 1;
+            const gamelleMult = r.gamelle ? 2 : 1;
+            (r.ingredients||[]).forEach(i => {
+                const k = i.name; const q = i.qty * portions * ps * gamelleMult;
+                if (!items[k]) items[k] = {name:i.name, qty:0, unit:i.unit, cat:i.cat};
+                items[k].qty += q;
+            });
+        } else {
+            // Has overrides and shared meal: count per member
+            allMembers.forEach(member => {
+                const r = getMealForMember(d, mt, member);
+                if (!r || r.isGamelle) return;
+                const ps = r.portionScale || 1;
+                const portionMult = getPortionMultiplier(member);
+                const gamelleMult = r.gamelle ? 2 : 1;
+                (r.ingredients||[]).forEach(i => {
+                    const k = i.name; const q = i.qty * portionMult * ps * gamelleMult;
+                    if (!items[k]) items[k] = {name:i.name, qty:0, unit:i.unit, cat:i.cat};
+                    items[k].qty += q;
+                });
+            });
+        }
     }));
-    Object.values(items).forEach(i=>i.qty=Math.round(i.qty*10)/10);
-    const grouped={};
-    Object.values(items).forEach(i=>{if(!grouped[i.cat])grouped[i.cat]=[];grouped[i.cat].push(i);});
+    Object.values(items).forEach(i => i.qty = Math.round(i.qty * 10) / 10);
+    const grouped = {};
+    Object.values(items).forEach(i => { if (!grouped[i.cat]) grouped[i.cat] = []; grouped[i.cat].push(i); });
     return grouped;
 }
 
